@@ -9,7 +9,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 // ─── Translations ─────────────────────────────────────────────────────────────
 const T = {
   en: {
-    appTitle: "Saldo", appSubtitle: "Your personal finance companion",
+    appTitle: "Tryvi", appSubtitle: "Your trusted budget companion",
     monthly: "Monthly Budget", overview: "Overview",
     income: "Monthly Income", incomePlaceholder: "e.g. 35000",
     addBucket: "+ Add Bucket", bucketName: "Name (e.g. Rent)",
@@ -67,7 +67,7 @@ const T = {
     defaultCategories: ["Accommodation","Subscriptions & Contracts","Car & Transport"],
   },
   sv: {
-    appTitle: "Saldo", appSubtitle: "Din personliga ekonomikompis",
+    appTitle: "Tryvi", appSubtitle: "Din trygga budgetkompis",
     monthly: "Månadsbudget", overview: "Översikt",
     income: "Månadsinkomst", incomePlaceholder: "t.ex. 35000",
     addBucket: "+ Lägg till hink", bucketName: "Namn (t.ex. Hyra)",
