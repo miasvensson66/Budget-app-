@@ -261,27 +261,54 @@ function useSupabaseUserData(userId, isDemo) {
   const [goals,      setGoalsState]      = useState(defaultGoals);
   const [categories, setCategoriesState] = useState(defaultCats);
   const [loading,    setLoading]         = useState(!isDemo);
+  const [error,      setError]           = useState(null);
   const [saving,     setSaving]          = useState(false);
   const saveTimer = useRef(null);
 
   // Load on mount
   useEffect(() => {
-    if (isDemo || !userId) return;
-    (async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("user_data")
-        .select("year_data, goals, categories")
-        .eq("user_id", userId)
-        .maybeSingle();
+    if (isDemo || !userId) { setLoading(false); return; }
+    let cancelled = false;
 
-      if (data) {
-        if (data.year_data)   setYearDataState(data.year_data);
-        if (data.goals)       setGoalsState(data.goals);
-        if (data.categories)  setCategoriesState(data.categories);
+    // Safety timeout — never get stuck on blue screen
+    const timeout = setTimeout(() => {
+      if (!cancelled) {
+        console.warn("Supabase load timeout — showing empty app");
+        setLoading(false);
       }
-      setLoading(false);
+    }, 8000);
+
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const { data, error: sbError } = await supabase
+          .from("user_data")
+          .select("year_data, goals, categories")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (sbError) {
+          console.error("Supabase load error:", sbError);
+          setError(sbError.message);
+        } else if (data) {
+          if (data.year_data)   setYearDataState(data.year_data);
+          if (data.goals)       setGoalsState(data.goals);
+          if (data.categories)  setCategoriesState(data.categories);
+        }
+        // No data = new user, defaults are already set — that's fine
+      } catch (e) {
+        console.error("Unexpected error loading data:", e);
+        if (!cancelled) setError(e.message);
+      } finally {
+        clearTimeout(timeout);
+        if (!cancelled) setLoading(false);
+      }
     })();
+
+    return () => { cancelled = true; clearTimeout(timeout); };
   }, [userId, isDemo]);
 
   // Debounced save to Supabase
@@ -323,7 +350,7 @@ function useSupabaseUserData(userId, isDemo) {
     });
   }
 
-  return { yearData, setYearData, goals, setGoals, categories, setCategories, loading, saving };
+  return { yearData, setYearData, goals, setGoals, categories, setCategories, loading, saving, error };
 }
 
 // ── Sample data for demo/test users ──────────────────────────────────────────
@@ -1361,7 +1388,7 @@ export default function App() {
       <div style={{ minHeight:"100vh", background:"#DDEAF8", display:"flex", alignItems:"center", justifyContent:"center" }}>
         <div style={{ textAlign:"center" }}>
           <div style={{ fontSize:40, marginBottom:12 }}>💰</div>
-          <div style={{ fontWeight:800, fontSize:24, color:"#1A2F52" }}>Saldo</div>
+          <div style={{ fontWeight:800, fontSize:24, color:"#1A2F52" }}>Tryvi</div>
           <div style={{ fontSize:13, color:"#8AAAD8", marginTop:8 }}>Laddar…</div>
         </div>
       </div>
@@ -1389,28 +1416,56 @@ function AppInner({ user, onLogout }) {
     yearData, setYearData,
     goals, setGoals,
     categories, setCategories,
-    loading, saving,
+    loading, saving, error: dataError,
   } = useSupabaseUserData(user.id, user.isDemo);
+
+  const [newCatName, setNewCatName] = useState("");
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [filterCat, setFilterCat] = useState("all");
+  const [showAddSource, setShowAddSource] = useState(false);
+  const [newSourceName, setNewSourceName] = useState("");
+  const [newSourceAmount, setNewSourceAmount] = useState("");
+  const [sourceFlash, setSourceFlash] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newBudget, setNewBudget] = useState("");
+  const [newCategoryId, setNewCategoryId] = useState("");
+  const [newSavingsGoalId, setNewSavingsGoalId] = useState("");
+  const [showAddBucket, setShowAddBucket] = useState(false);
+  const [incomeCopied, setIncomeCopied] = useState(false);
 
   // Sync default category names when language changes
   useEffect(() => {
     setCategories(prev => prev.map((c,i) => i < 3 ? {...c, name: t.defaultCategories[i]} : c));
   }, [lang]);
 
-  const [newCatName, setNewCatName] = useState("");
-  const [showAddCat, setShowAddCat] = useState(false);
-  const [filterCat, setFilterCat] = useState("all");
-
   // Show loading screen while fetching data from Supabase
-  if (loading) {
+  if (loading || dataError) {
     return (
-      <div style={{ minHeight:"100vh", background:theme.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <div style={{ textAlign:"center" }}>
+      <div style={{ minHeight:"100vh", background:theme.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+        <div style={{ textAlign:"center", maxWidth:320 }}>
           <div style={{ fontSize:40, marginBottom:12 }}>💰</div>
-          <div style={{ fontWeight:800, fontSize:24, color:theme.accentDeep }}>Saldo</div>
-          <div style={{ fontSize:13, color:theme.accentMuted, marginTop:8 }}>
-            {lang==="sv" ? "Hämtar din data…" : "Loading your data…"}
-          </div>
+          <div style={{ fontWeight:800, fontSize:24, color:theme.accentDeep }}>Tryvi</div>
+          {dataError ? (
+            <>
+              <div style={{ fontSize:13, color:"#C03030", marginTop:12, padding:"12px 16px", background:"#FFE8E8", borderRadius:12, border:"1px solid #F0A0A0" }}>
+                ⚠️ {dataError}
+              </div>
+              <div style={{ fontSize:12, color:theme.accentMuted, marginTop:8 }}>
+                {lang==="sv"
+                  ? "Kontrollera att SQL-scriptet kördes i Supabase och att RLS är aktiverat."
+                  : "Check that the SQL script ran in Supabase and RLS is enabled."}
+              </div>
+              <button onClick={onLogout} style={{
+                marginTop:16, padding:"10px 24px", borderRadius:14,
+                background:`linear-gradient(135deg,${theme.accent},${theme.accentDeep})`,
+                color:"#fff", border:"none", cursor:"pointer", fontWeight:700,
+              }}>{lang==="sv" ? "Logga ut och försök igen" : "Log out and try again"}</button>
+            </>
+          ) : (
+            <div style={{ fontSize:13, color:theme.accentMuted, marginTop:8 }}>
+              {lang==="sv" ? "Hämtar din data…" : "Loading your data…"}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1423,10 +1478,6 @@ function AppInner({ user, onLogout }) {
   }
 
   // ── Income sources ──────────────────────────────────────────────────────────
-  const [showAddSource, setShowAddSource] = useState(false);
-  const [newSourceName, setNewSourceName] = useState("");
-  const [newSourceAmount, setNewSourceAmount] = useState("");
-  const [sourceFlash, setSourceFlash] = useState(""); // sourceId that flashed
 
   function totalMonthIncome(m) {
     return (m.incomeSources || []).reduce((s, src) => s + (src.amount || 0), 0);
@@ -1469,12 +1520,6 @@ function AppInner({ user, onLogout }) {
     setSourceFlash(source.id);
     setTimeout(() => setSourceFlash(""), 2000);
   }
-
-  const [newName, setNewName] = useState("");
-  const [newBudget, setNewBudget] = useState("");
-  const [newCategoryId, setNewCategoryId] = useState("");
-  const [newSavingsGoalId, setNewSavingsGoalId] = useState("");
-  const [showAddBucket, setShowAddBucket] = useState(false);
 
   function addBucket() {
     const name = newName.trim();
