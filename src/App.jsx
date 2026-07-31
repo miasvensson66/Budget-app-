@@ -35,8 +35,21 @@ const T = {
     linkToGoal: "Link to savings goal",
     noLink: "No link",
     linkedToGoal: "→ Savings goal",
+    editCategory: "Change category",
+    myAccount: "My Account",
+    accountEmail: "Email address",
+    changePassword: "Change password",
+    newPassword: "New password",
+    confirmPassword: "Confirm password",
+    passwordChanged: "✓ Password updated!",
+    passwordMismatch: "Passwords don't match",
+    deleteAccount: "Delete account",
+    deleteAccountConfirm: "This permanently deletes all your data. Type DELETE to confirm:",
+    deleteAccountDone: "Account deleted",
+    gdprNote: "Your data is stored in the EU (Stockholm) and handled according to GDPR. You have the right to access, correct and delete your data at any time.",
+    close: "Close",
     copyIncomeToAllDone: "✓ Applied to all 12 months",
-    copyBucketToMonths: "Copy bucket to months",
+    copyBucketToMonths: "Copy to specific months",
     selectMonths: "Select months",
     applyToMonths: "Apply to selected",
     cancel: "Cancel",
@@ -93,10 +106,23 @@ const T = {
     linkToGoal: "Koppla till sparmål",
     noLink: "Ingen koppling",
     linkedToGoal: "→ Sparmål",
+    editCategory: "Ändra kategori",
+    myAccount: "Mitt konto",
+    accountEmail: "E-postadress",
+    changePassword: "Ändra lösenord",
+    newPassword: "Nytt lösenord",
+    confirmPassword: "Bekräfta lösenord",
+    passwordChanged: "✓ Lösenord uppdaterat!",
+    passwordMismatch: "Lösenorden matchar inte",
+    deleteAccount: "Radera konto",
+    deleteAccountConfirm: "Detta raderar all din data permanent. Skriv RADERA för att bekräfta:",
+    deleteAccountDone: "Konto raderat",
+    gdprNote: "Din data lagras i EU (Stockholm) och hanteras enligt GDPR. Du har rätt att när som helst begära tillgång till, korrigera och radera dina uppgifter.",
+    close: "Stäng",
     addSpending: "Lägg till utgift…", save: "Spara",
     copyIncomeToAll: "Använd för alla månader",
     copyIncomeToAllDone: "✓ Sparad för alla 12 månader",
-    copyBucketToMonths: "Kopiera hink till månader",
+    copyBucketToMonths: "Välj månader att spara till",
     selectMonths: "Välj månader",
     applyToMonths: "Spara för valda månader",
     cancel: "Avbryt",
@@ -557,11 +583,12 @@ function IncomeSourceRow({ source, currency, t, flashing, onUpdate, onDelete, on
 }
 
 // ─── Bucket Card ─────────────────────────────────────────────────────────────
-function BucketCard({ bucket, lang, currency, categories, goals, onDelete, onAddSpend, onCopyToMonths, onEditBudgetMonths, onSaveToAllMonths, theme }) {
+function BucketCard({ bucket, lang, currency, categories, goals, onDelete, onAddSpend, onCopyToMonths, onEditBudgetMonths, onSaveToAllMonths, onUpdateCategory, theme }) {
   const [spendInput, setSpendInput] = useState("");
   const [expanded, setExpanded] = useState(false);
-  const [modal, setModal] = useState(null); // "copy" | "budget" | null
+  const [modal, setModal] = useState(null);
   const [flash, setFlash] = useState("");
+  const [showCatEdit, setShowCatEdit] = useState(false);
   const t = T[lang];
   const pal = getBucketPalettes(theme || THEMES[0])[bucket.colorIdx % 8];
   const pct = bucket.budget > 0 ? (bucket.spent / bucket.budget) * 100 : 0;
@@ -698,6 +725,38 @@ function BucketCard({ bucket, lang, currency, categories, goals, onDelete, onAdd
                 {flash === "budget" ? "✓ Done" : "💰 " + t.editBudgetForMonths}
               </button>
             </div>
+
+            {/* Category edit */}
+            <div style={{ marginTop: 10 }}>
+              <button onClick={() => setShowCatEdit(e => !e)} style={{
+                width:"100%", padding:"8px 12px", borderRadius:12,
+                border:`1.5px solid ${theme?.cardBorder||"#B8D0EC"}`,
+                background:"rgba(255,255,255,0.6)", color:theme?.accentMuted||"#5A8AB0",
+                cursor:"pointer", fontSize:11, fontWeight:600, textAlign:"left",
+              }}>
+                🏷️ {t.editCategory} {catName ? `· ${catName}` : ""}
+              </button>
+              {showCatEdit && (
+                <div style={{ marginTop:8, display:"flex", flexWrap:"wrap", gap:6 }}>
+                  <button onClick={()=>{onUpdateCategory(null);setShowCatEdit(false);}} style={{
+                    padding:"5px 12px", borderRadius:12,
+                    border:`1.5px solid ${theme?.inputBorder||"#7AAAD8"}`,
+                    background:!bucket.categoryId?(theme?.accent||"#4A80C8"):"transparent",
+                    color:!bucket.categoryId?"#fff":(theme?.accentDeep||"#2A5A9A"),
+                    cursor:"pointer", fontSize:11, fontWeight:600,
+                  }}>{t.noCategory}</button>
+                  {categories.map(cat => (
+                    <button key={cat.id} onClick={()=>{onUpdateCategory(cat.id);setShowCatEdit(false);}} style={{
+                      padding:"5px 12px", borderRadius:12,
+                      border:`1.5px solid ${theme?.inputBorder||"#7AAAD8"}`,
+                      background:bucket.categoryId===cat.id?(theme?.accent||"#4A80C8"):"transparent",
+                      color:bucket.categoryId===cat.id?"#fff":(theme?.accentDeep||"#2A5A9A"),
+                      cursor:"pointer", fontSize:11, fontWeight:600,
+                    }}>{cat.name}</button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -788,12 +847,15 @@ function OverviewTab({ yearData, lang, currency, categories, theme }) {
         <div style={{ fontWeight:700, fontSize:16, color:th.accentDeep, marginBottom:14 }}>{t.monthlyChart}</div>
         <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:100 }}>
           {yearData.map((m,i) => {
+            const budgeted = m.buckets.reduce((s,b)=>s+b.budget,0);
             const incH = maxVal>0?(allIncome[i]/maxVal)*90:0;
-            const spH = maxVal>0?(allSpent[i]/maxVal)*90:0;
+            const budH = maxVal>0?(budgeted/maxVal)*90:0;
+            const spH  = maxVal>0?(allSpent[i]/maxVal)*90:0;
             return (
-              <div key={i} style={{ flex:1, display:"flex", alignItems:"flex-end", gap:2, justifyContent:"center" }}>
-                <div style={{ width:"45%", height:incH, minHeight:allIncome[i]>0?4:0, background:`linear-gradient(180deg,${th.accent}CC,${th.accentDeep})`, borderRadius:"4px 4px 0 0", transition:"height 0.6s ease" }} />
-                <div style={{ width:"45%", height:spH, minHeight:allSpent[i]>0?4:0, background:"linear-gradient(180deg,#F09898,#C05050)", borderRadius:"4px 4px 0 0", transition:"height 0.6s ease" }} />
+              <div key={i} style={{ flex:1, display:"flex", alignItems:"flex-end", gap:1, justifyContent:"center" }}>
+                <div style={{ width:"30%", height:incH, minHeight:allIncome[i]>0?4:0, background:`linear-gradient(180deg,${th.accent}CC,${th.accentDeep})`, borderRadius:"3px 3px 0 0", transition:"height 0.6s ease" }} />
+                <div style={{ width:"30%", height:budH, minHeight:budgeted>0?4:0, background:`linear-gradient(180deg,#A0C0F0,#6090D0)`, borderRadius:"3px 3px 0 0", transition:"height 0.6s ease" }} />
+                <div style={{ width:"30%", height:spH, minHeight:allSpent[i]>0?4:0, background:"linear-gradient(180deg,#F09898,#C05050)", borderRadius:"3px 3px 0 0", transition:"height 0.6s ease" }} />
               </div>
             );
           })}
@@ -801,11 +863,11 @@ function OverviewTab({ yearData, lang, currency, categories, theme }) {
         <div style={{ display:"flex", gap:3, marginTop:6 }}>
           {yearData.map((_,i)=><div key={i} style={{flex:1,textAlign:"center",fontSize:9,color:th.accentMuted}}>{t.months[i]}</div>)}
         </div>
-        <div style={{ display:"flex", gap:16, marginTop:10, justifyContent:"center" }}>
-          {[[th.accent,t.income],["#C05050",t.spentLabel2]].map(([col,lbl])=>(
-            <div key={lbl} style={{display:"flex",alignItems:"center",gap:6}}>
-              <div style={{width:12,height:12,borderRadius:3,background:col}}/>
-              <span style={{fontSize:11,color:th.accentMuted}}>{lbl}</span>
+        <div style={{ display:"flex", gap:12, marginTop:10, justifyContent:"center", flexWrap:"wrap" }}>
+          {[[th.accent, t.totalIncome],["#6090D0", t.totalBudgeted],["#C05050", t.spentLabel2]].map(([col,lbl])=>(
+            <div key={lbl} style={{display:"flex",alignItems:"center",gap:5}}>
+              <div style={{width:10,height:10,borderRadius:3,background:col}}/>
+              <span style={{fontSize:10,color:th.accentMuted}}>{lbl}</span>
             </div>
           ))}
         </div>
@@ -1153,6 +1215,125 @@ function SavingsTab({ goals, setGoals, lang, currency, theme, yearData }) {
   );
 }
 
+// ─── Profile Screen ───────────────────────────────────────────────────────────
+function ProfileScreen({ user, lang, theme, onClose, onLogout }) {
+  const t = T[lang];
+  const [newPw, setNewPw]       = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwMsg, setPwMsg]       = useState("");
+  const [deleteInput, setDeleteInput] = useState("");
+  const [showDelete, setShowDelete]   = useState(false);
+  const [loading, setLoading]   = useState(false);
+
+  async function changePassword() {
+    if (newPw !== confirmPw) { setPwMsg(t.passwordMismatch); return; }
+    if (newPw.length < 6) { setPwMsg(lang==="sv"?"Minst 6 tecken":"Minimum 6 characters"); return; }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPw });
+    setLoading(false);
+    if (error) { setPwMsg(error.message); return; }
+    setPwMsg(t.passwordChanged);
+    setNewPw(""); setConfirmPw("");
+    setTimeout(() => setPwMsg(""), 3000);
+  }
+
+  async function deleteAccount() {
+    const confirmWord = lang === "sv" ? "RADERA" : "DELETE";
+    if (deleteInput !== confirmWord) return;
+    setLoading(true);
+    // Delete user data first
+    await supabase.from("user_data").delete().eq("user_id", user.id);
+    // Delete auth user via RPC
+    await supabase.rpc("delete_user");
+    setLoading(false);
+    onLogout();
+  }
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:300, display:"flex", alignItems:"flex-end" }}
+      onClick={onClose}>
+      <div style={{
+        background:theme.card, borderRadius:"24px 24px 0 0", padding:24,
+        width:"100%", maxWidth:480, margin:"0 auto", maxHeight:"85vh", overflowY:"auto",
+      }} onClick={e=>e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+          <div>
+            <div style={{ fontWeight:800, fontSize:20, color:theme.accentDeep }}>👤 {t.myAccount}</div>
+            <div style={{ fontSize:12, color:theme.accentMuted, marginTop:2 }}>{user.name}</div>
+          </div>
+          <button onClick={onClose} style={{ background:theme.pill, border:"none", borderRadius:12, padding:"8px 14px", cursor:"pointer", color:theme.pillText, fontWeight:600 }}>{t.close}</button>
+        </div>
+
+        {/* Email */}
+        <div style={{ background:theme.pill, borderRadius:14, padding:"12px 16px", marginBottom:16 }}>
+          <div style={{ fontSize:10, color:theme.accentMuted, letterSpacing:0.8, marginBottom:4 }}>{t.accountEmail.toUpperCase()}</div>
+          <div style={{ fontSize:14, fontWeight:600, color:theme.accentDeep }}>{user.email || "—"}</div>
+        </div>
+
+        {/* Change password */}
+        <div style={{ background:theme.pill, borderRadius:16, padding:16, marginBottom:16 }}>
+          <div style={{ fontWeight:700, fontSize:14, color:theme.accentDeep, marginBottom:12 }}>🔑 {t.changePassword}</div>
+          <input type="password" value={newPw} onChange={e=>setNewPw(e.target.value)}
+            placeholder={t.newPassword}
+            style={{ width:"100%", padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep, marginBottom:8 }}
+          />
+          <input type="password" value={confirmPw} onChange={e=>setConfirmPw(e.target.value)}
+            placeholder={t.confirmPassword}
+            onKeyDown={e=>e.key==="Enter"&&changePassword()}
+            style={{ width:"100%", padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep, marginBottom:10 }}
+          />
+          {pwMsg && <div style={{ fontSize:12, color: pwMsg.includes("✓") ? "#2A6A2A" : "#C03030", marginBottom:8, fontWeight:600 }}>{pwMsg}</div>}
+          <button onClick={changePassword} disabled={loading || !newPw} style={{
+            width:"100%", padding:"11px", borderRadius:12,
+            background: (!newPw||loading) ? theme.cardBorder : `linear-gradient(135deg,${theme.accent},${theme.accentDeep})`,
+            color:"#fff", border:"none", cursor:(!newPw||loading)?"default":"pointer", fontWeight:700, fontSize:14,
+          }}>{loading ? "…" : t.changePassword}</button>
+        </div>
+
+        {/* GDPR note */}
+        <div style={{ background:`${theme.accent}10`, borderRadius:14, padding:"12px 16px", marginBottom:16, border:`1px solid ${theme.cardBorder}` }}>
+          <div style={{ fontSize:11, color:theme.accentMuted, lineHeight:1.6 }}>🇪🇺 {t.gdprNote}</div>
+        </div>
+
+        {/* Delete account */}
+        <div style={{ borderRadius:16, padding:16, border:"1.5px solid #F0A0A0", background:"#FFF8F8" }}>
+          <div style={{ fontWeight:700, fontSize:14, color:"#C03030", marginBottom:8 }}>🗑️ {t.deleteAccount}</div>
+          {!showDelete ? (
+            <button onClick={()=>setShowDelete(true)} style={{
+              width:"100%", padding:"10px", borderRadius:12,
+              border:"1.5px solid #F0A0A0", background:"transparent",
+              color:"#C03030", cursor:"pointer", fontWeight:600, fontSize:13,
+            }}>{t.deleteAccount}</button>
+          ) : (
+            <>
+              <div style={{ fontSize:12, color:"#C03030", marginBottom:8 }}>{t.deleteAccountConfirm}</div>
+              <input type="text" value={deleteInput} onChange={e=>setDeleteInput(e.target.value)}
+                placeholder={lang==="sv"?"RADERA":"DELETE"}
+                style={{ width:"100%", padding:"10px 14px", borderRadius:12, border:"1.5px solid #F0A0A0", background:"white", fontSize:14, color:"#C03030", marginBottom:8, fontWeight:700 }}
+              />
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={deleteAccount}
+                  disabled={deleteInput !== (lang==="sv"?"RADERA":"DELETE") || loading}
+                  style={{
+                    flex:1, padding:"11px", borderRadius:12,
+                    background: deleteInput===(lang==="sv"?"RADERA":"DELETE") ? "#C03030" : "#E0C0C0",
+                    color:"#fff", border:"none", cursor:"pointer", fontWeight:700, fontSize:14,
+                  }}>{loading?"…":t.deleteAccount}</button>
+                <button onClick={()=>{setShowDelete(false);setDeleteInput("");}} style={{
+                  padding:"11px 16px", borderRadius:12, background:theme.pill,
+                  color:theme.pillText, border:"none", cursor:"pointer",
+                }}>{t.cancel}</button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
   const [lang, setLang] = useLS("saldo_ui_lang", "sv");
@@ -1359,6 +1540,7 @@ export default function App() {
         setCurrentUser({
           id: session.user.id,
           name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
+          email: session.user.email,
         });
       }
       setAuthLoading(false);
@@ -1370,6 +1552,7 @@ export default function App() {
         setCurrentUser({
           id: session.user.id,
           name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
+          email: session.user.email,
         });
       } else {
         setCurrentUser(null);
@@ -1405,9 +1588,10 @@ function AppInner({ user, onLogout }) {
   const [themeId, setThemeId]   = useLS("saldo_theme", "blue");
   const theme = THEMES.find(th => th.id === themeId) || THEMES[0];
 
-  const [activeTab, setActiveTab]       = useState("monthly");
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [showSettings, setShowSettings] = useState(false);
+  const [activeTab, setActiveTab]         = useState("monthly");
+  const [selectedMonth, setSelectedMonth] = useState(0);
+  const [showSettings, setShowSettings]   = useState(false);
+  const [showProfile, setShowProfile]     = useState(false);
 
   const t = T[lang];
 
@@ -1590,6 +1774,12 @@ function AppInner({ user, onLogout }) {
     }));
   }
 
+  function updateBucketCategory(bucketId, categoryId) {
+    updateMonth(selectedMonth, m => ({
+      ...m, buckets: m.buckets.map(b => b.id === bucketId ? { ...b, categoryId } : b)
+    }));
+  }
+
   function addCategory() {
     const name = newCatName.trim();
     if (!name) return;
@@ -1632,15 +1822,15 @@ function AppInner({ user, onLogout }) {
             <div>
               <div style={{ fontWeight:800, fontSize:30, color:"#fff", letterSpacing:"-1px" }}>{t.appTitle}</div>
               <div style={{ fontSize:12, color:theme.accentMuted, marginTop:2, display:"flex", alignItems:"center", gap:6 }}>
-                👤 {user.name}{user.isDemo ? " (Demo)" : ""}
-                {saving && (
-                  <span style={{ fontSize:10, color:theme.accentMuted }}>
-                    {lang==="sv" ? "· sparar…" : "· saving…"}
-                  </span>
-                )}
-                {!saving && !user.isDemo && (
-                  <span style={{ fontSize:10, color:"#80D880" }}>✓</span>
-                )}
+                <button onClick={()=>setShowProfile(true)} style={{
+                  background:"none", border:"none", cursor:"pointer",
+                  color:theme.accentMuted, fontSize:12, padding:0, fontWeight:600,
+                  textDecoration:"underline", textDecorationStyle:"dotted",
+                }}>
+                  👤 {user.name}{user.isDemo ? " (Demo)" : ""}
+                </button>
+                {saving && <span style={{ fontSize:10, color:theme.accentMuted }}>· {lang==="sv"?"sparar…":"saving…"}</span>}
+                {!saving && !user.isDemo && <span style={{ fontSize:10, color:"#80D880" }}>✓</span>}
               </div>
             </div>
             <div style={{ display:"flex", gap:8 }}>
@@ -1869,6 +2059,7 @@ function AppInner({ user, onLogout }) {
                     onCopyToMonths={months=>copyBucketToMonths(b,months)}
                     onEditBudgetMonths={(months,amt)=>editBudgetForMonths(b,months,amt)}
                     onSaveToAllMonths={()=>saveBucketToAllMonths(b)}
+                    onUpdateCategory={catId=>updateBucketCategory(b.id,catId)}
                   />
                 ))}
 
@@ -1976,6 +2167,16 @@ function AppInner({ user, onLogout }) {
           </div>
         </div>
       </div>
+
+      {/* Profile modal */}
+      {showProfile && (
+        <ProfileScreen
+          user={{...user, email: user.email}}
+          lang={lang} theme={theme}
+          onClose={()=>setShowProfile(false)}
+          onLogout={onLogout}
+        />
+      )}
     </>
   );
 }
