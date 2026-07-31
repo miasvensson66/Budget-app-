@@ -6,6 +6,26 @@ const SUPABASE_URL  = "https://mhijoihswuwvheuaprsy.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaWpvaWhzd3V3dmhldWFwcnN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjA3NzQsImV4cCI6MjA5NDQzNjc3NH0.g4hy8zuoOcpr9AdBqMN_3iBIHjpRgIrGK_OlpbC8oxk";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
+// ─── Responsive hook ──────────────────────────────────────────────────────────
+function useViewport() {
+  const [vw, setVw] = useState(window.innerWidth);
+  const [vh, setVh] = useState(window.innerHeight);
+  useEffect(() => {
+    function update() { setVw(window.innerWidth); setVh(window.innerHeight); }
+    window.addEventListener("resize", update);
+    // iOS Safari viewport fix
+    document.documentElement.style.setProperty("--vh", `${window.innerHeight * 0.01}px`);
+    window.addEventListener("resize", () => {
+      document.documentElement.style.setProperty("--vh", `${window.innerHeight * 0.01}px`);
+    });
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  const isTablet  = vw >= 600;
+  const isDesktop = vw >= 1024;
+  const maxW      = isDesktop ? 480 : isTablet ? 540 : "100%";
+  return { vw, vh, isTablet, isDesktop, maxW };
+}
+
 // ─── Translations ─────────────────────────────────────────────────────────────
 const T = {
   en: {
@@ -36,6 +56,14 @@ const T = {
     noLink: "No link",
     linkedToGoal: "→ Savings goal",
     editCategory: "Change category",
+    changeEmail: "Change email address",
+    newEmail: "New email address",
+    emailChanged: "✓ Confirmation sent to new email",
+    emailChangedInfo: "Check your new inbox and click the confirmation link.",
+    applyIncomeToMonths: "Copy income to months",
+    applyAllIncome: "Apply all sources to all months",
+    applyAllIncomeDone: "✓ Applied to all months!",
+    editIncomeForMonths: "Set amount for months",
     myAccount: "My Account",
     accountEmail: "Email address",
     changePassword: "Change password",
@@ -107,6 +135,14 @@ const T = {
     noLink: "Ingen koppling",
     linkedToGoal: "→ Sparmål",
     editCategory: "Ändra kategori",
+    changeEmail: "Ändra e-postadress",
+    newEmail: "Ny e-postadress",
+    emailChanged: "✓ Bekräftelse skickad till ny e-post",
+    emailChangedInfo: "Kontrollera din nya inkorg och klicka på bekräftelselänken.",
+    applyIncomeToMonths: "Kopiera inkomst till månader",
+    applyAllIncome: "Använd alla inkomster för alla månader",
+    applyAllIncomeDone: "✓ Kopierat till alla månader!",
+    editIncomeForMonths: "Sätt belopp för månader",
     myAccount: "Mitt konto",
     accountEmail: "E-postadress",
     changePassword: "Ändra lösenord",
@@ -522,63 +558,116 @@ function MonthSelectorModal({ title, t, onConfirm, onClose, extraField, theme })
 }
 
 // ─── Income Source Row ────────────────────────────────────────────────────────
-function IncomeSourceRow({ source, currency, t, flashing, onUpdate, onDelete, onApplyToAll, theme }) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(source.amount);
+function IncomeSourceRow({ source, currency, t, lang, flashing, onUpdate, onDelete, onApplyToAll, onCopyToMonths, onEditForMonths, theme }) {
+  const [editing, setEditing]       = useState(false);
+  const [val, setVal]               = useState(source.amount);
+  const [expanded, setExpanded]     = useState(false);
+  const [flash, setFlash]           = useState("");
+  const [modal, setModal]           = useState(null);
 
-  function commit() {
-    onUpdate(val);
-    setEditing(false);
+  function commit() { onUpdate(val); setEditing(false); }
+
+  function handleCopyAll() {
+    onApplyToAll();
+    setFlash("all");
+    setTimeout(() => setFlash(""), 2200);
+  }
+
+  function handleCopy(months) {
+    onCopyToMonths(months);
+    setModal(null);
+    setFlash("copy");
+    setTimeout(() => setFlash(""), 2000);
+  }
+
+  function handleEditMonths(months, amount) {
+    const v = parseFloat(amount);
+    if (!isNaN(v) && v >= 0) onEditForMonths(months, v);
+    setModal(null);
+    setFlash("edit");
+    setTimeout(() => setFlash(""), 2000);
   }
 
   return (
-    <div style={{
-      display:"flex", alignItems:"center", gap:8, marginBottom:8,
-      background:"rgba(255,255,255,0.07)", borderRadius:12, padding:"10px 12px",
-    }}>
-      {/* Colour dot */}
-      <div style={{ width:8, height:8, borderRadius:"50%", background:"#C4A882", flexShrink:0 }} />
+    <>
+      <div style={{
+        background:"rgba(255,255,255,0.07)", borderRadius:12, marginBottom:8, overflow:"hidden",
+      }}>
+        {/* Main row */}
+        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px" }}>
+          <div style={{ width:8, height:8, borderRadius:"50%", background: theme?.accent || "#C4A882", flexShrink:0 }} />
 
-      {/* Name */}
-      <div style={{ flex:1, fontSize:14, fontWeight:600, color:"#F5F0EA", minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-        {source.name}
+          {/* Name */}
+          <div style={{ flex:1, fontSize:14, fontWeight:600, color:"#F5F0EA", minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            {source.name}
+          </div>
+
+          {/* Amount — tap to edit */}
+          {editing ? (
+            <input type="number" value={val} autoFocus
+              onChange={e=>setVal(e.target.value)}
+              onBlur={commit}
+              onKeyDown={e=>e.key==="Enter"&&commit()}
+              style={{ width:100, padding:"5px 8px", borderRadius:8, border:"1.5px solid #C4A882", background:"rgba(255,255,255,0.15)", color:"#F5F0EA", fontSize:14, fontWeight:700, textAlign:"right" }}
+            />
+          ) : (
+            <button onClick={()=>{ setVal(source.amount); setEditing(true); }} style={{
+              background:"none", border:"none", cursor:"pointer", color:"#F5F0EA", fontSize:14, fontWeight:700, padding:"4px 6px",
+            }}>{fmt(source.amount, currency)}</button>
+          )}
+
+          {/* Expand toggle */}
+          <button onClick={()=>setExpanded(e=>!e)} style={{
+            background:"rgba(255,255,255,0.1)", border:"none", borderRadius:8,
+            padding:"5px 8px", cursor:"pointer", color:"#C4A882", fontSize:12,
+          }}>{expanded ? "▲" : "▼"}</button>
+
+          {/* Apply to all */}
+          <button onClick={handleCopyAll} title={t.applySourceToAll} style={{
+            background: flashing||flash==="all" ? "rgba(74,170,74,0.3)" : "rgba(255,255,255,0.1)",
+            border:`1px solid ${flashing||flash==="all"?"#6AAA6A":"rgba(255,255,255,0.15)"}`,
+            color: flashing||flash==="all" ? "#A0E0A0" : "#C4A882",
+            borderRadius:8, padding:"5px 8px", cursor:"pointer", fontSize:11, fontWeight:600,
+            transition:"all 0.3s", flexShrink:0,
+          }}>{flashing||flash==="all" ? "✓" : "📅"}</button>
+
+          {/* Delete */}
+          <button onClick={onDelete} style={{
+            background:"none", border:"none", cursor:"pointer", color:"#9A7060", fontSize:15, padding:"2px 4px", flexShrink:0,
+          }}>{t.deleteSource}</button>
+        </div>
+
+        {/* Expanded action buttons */}
+        {expanded && (
+          <div style={{ padding:"0 12px 12px", display:"flex", gap:8 }}>
+            <button onClick={()=>setModal("copy")} style={{
+              flex:1, padding:"8px 10px", borderRadius:10,
+              border:`1.5px solid ${theme?.inputBorder||"#7AAAD8"}`,
+              background: flash==="copy" ? "#E0F4EA" : "rgba(255,255,255,0.08)",
+              color: flash==="copy" ? "#1A6A3A" : "#C4A882",
+              cursor:"pointer", fontSize:11, fontWeight:600,
+            }}>{flash==="copy" ? "✓" : "📋 " + t.applyIncomeToMonths}</button>
+            <button onClick={()=>setModal("edit")} style={{
+              flex:1, padding:"8px 10px", borderRadius:10,
+              border:`1.5px solid ${theme?.inputBorder||"#7AAAD8"}`,
+              background: flash==="edit" ? "#E0F4EA" : "rgba(255,255,255,0.08)",
+              color: flash==="edit" ? "#1A6A3A" : "#C4A882",
+              cursor:"pointer", fontSize:11, fontWeight:600,
+            }}>{flash==="edit" ? "✓" : "💰 " + t.editIncomeForMonths}</button>
+          </div>
+        )}
       </div>
 
-      {/* Amount — tap to edit */}
-      {editing ? (
-        <input
-          type="number" value={val} autoFocus
-          onChange={e=>setVal(e.target.value)}
-          onBlur={commit}
-          onKeyDown={e=>e.key==="Enter"&&commit()}
-          style={{
-            width:90, padding:"5px 8px", borderRadius:8,
-            border:"1.5px solid #C4A882", background:"rgba(255,255,255,0.15)",
-            color:"#F5F0EA", fontSize:14, fontWeight:700, textAlign:"right",
-          }}
-        />
-      ) : (
-        <button onClick={()=>{ setVal(source.amount); setEditing(true); }} style={{
-          background:"none", border:"none", cursor:"pointer",
-          color:"#F5F0EA", fontSize:14, fontWeight:700, padding:"4px 6px",
-        }}>{fmt(source.amount, currency)}</button>
+      {modal === "copy" && (
+        <MonthSelectorModal title={t.applyIncomeToMonths} t={t} theme={theme}
+          onConfirm={handleCopy} onClose={()=>setModal(null)} />
       )}
-
-      {/* Apply to all months */}
-      <button onClick={onApplyToAll} title={t.applySourceToAll} style={{
-        background: flashing ? "rgba(74,170,74,0.3)" : "rgba(255,255,255,0.1)",
-        border: `1px solid ${flashing?"#6AAA6A":"rgba(255,255,255,0.15)"}`,
-        color: flashing ? "#A0E0A0" : "#C4A882",
-        borderRadius:8, padding:"5px 8px", cursor:"pointer", fontSize:11, fontWeight:600,
-        transition:"all 0.3s", whiteSpace:"nowrap", flexShrink:0,
-      }}>{flashing ? "✓" : "📅"}</button>
-
-      {/* Delete */}
-      <button onClick={onDelete} style={{
-        background:"none", border:"none", cursor:"pointer",
-        color:"#9A7060", fontSize:15, padding:"2px 4px", flexShrink:0,
-      }}>{t.deleteSource}</button>
-    </div>
+      {modal === "edit" && (
+        <MonthSelectorModal title={t.editIncomeForMonths} t={t} theme={theme}
+          onConfirm={handleEditMonths} onClose={()=>setModal(null)}
+          extraField={{ label: t.incomeSourceAmount, placeholder: fmt(source.amount, currency) }} />
+      )}
+    </>
   );
 }
 
@@ -1218,12 +1307,14 @@ function SavingsTab({ goals, setGoals, lang, currency, theme, yearData }) {
 // ─── Profile Screen ───────────────────────────────────────────────────────────
 function ProfileScreen({ user, lang, theme, onClose, onLogout }) {
   const t = T[lang];
-  const [newPw, setNewPw]       = useState("");
-  const [confirmPw, setConfirmPw] = useState("");
-  const [pwMsg, setPwMsg]       = useState("");
+  const [newPw, setNewPw]           = useState("");
+  const [confirmPw, setConfirmPw]   = useState("");
+  const [pwMsg, setPwMsg]           = useState("");
+  const [newEmail, setNewEmail]     = useState("");
+  const [emailMsg, setEmailMsg]     = useState("");
   const [deleteInput, setDeleteInput] = useState("");
-  const [showDelete, setShowDelete]   = useState(false);
-  const [loading, setLoading]   = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [loading, setLoading]       = useState(false);
 
   async function changePassword() {
     if (newPw !== confirmPw) { setPwMsg(t.passwordMismatch); return; }
@@ -1237,28 +1328,48 @@ function ProfileScreen({ user, lang, theme, onClose, onLogout }) {
     setTimeout(() => setPwMsg(""), 3000);
   }
 
+  async function changeEmail() {
+    if (!newEmail || !newEmail.includes("@")) {
+      setEmailMsg(lang==="sv"?"Ange en giltig e-postadress":"Enter a valid email");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser(
+      { email: newEmail },
+      { emailRedirectTo: window.location.origin }
+    );
+    setLoading(false);
+    if (error) { setEmailMsg(error.message); return; }
+    setEmailMsg(t.emailChanged);
+    setNewEmail("");
+    setTimeout(() => setEmailMsg(""), 5000);
+  }
+
   async function deleteAccount() {
     const confirmWord = lang === "sv" ? "RADERA" : "DELETE";
     if (deleteInput !== confirmWord) return;
     setLoading(true);
-    // Delete user data first
     await supabase.from("user_data").delete().eq("user_id", user.id);
-    // Delete auth user via RPC
     await supabase.rpc("delete_user");
     setLoading(false);
     onLogout();
   }
 
+  const cardStyle = { background:theme.pill, borderRadius:16, padding:16, marginBottom:14 };
+
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:300, display:"flex", alignItems:"flex-end" }}
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center" }}
       onClick={onClose}>
       <div style={{
-        background:theme.card, borderRadius:"24px 24px 0 0", padding:24,
-        width:"100%", maxWidth:480, margin:"0 auto", maxHeight:"85vh", overflowY:"auto",
+        background:theme.card, borderRadius:"24px 24px 0 0", padding:"20px 20px 40px",
+        width:"100%", maxWidth:540, maxHeight:"90vh", overflowY:"auto",
       }} onClick={e=>e.stopPropagation()}>
 
+        {/* Handle bar */}
+        <div style={{ width:40, height:4, background:theme.cardBorder, borderRadius:2, margin:"0 auto 16px" }} />
+
         {/* Header */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
           <div>
             <div style={{ fontWeight:800, fontSize:20, color:theme.accentDeep }}>👤 {t.myAccount}</div>
             <div style={{ fontSize:12, color:theme.accentMuted, marginTop:2 }}>{user.name}</div>
@@ -1266,15 +1377,36 @@ function ProfileScreen({ user, lang, theme, onClose, onLogout }) {
           <button onClick={onClose} style={{ background:theme.pill, border:"none", borderRadius:12, padding:"8px 14px", cursor:"pointer", color:theme.pillText, fontWeight:600 }}>{t.close}</button>
         </div>
 
-        {/* Email */}
-        <div style={{ background:theme.pill, borderRadius:14, padding:"12px 16px", marginBottom:16 }}>
+        {/* Current email */}
+        <div style={{ background:theme.pill, borderRadius:14, padding:"12px 16px", marginBottom:14 }}>
           <div style={{ fontSize:10, color:theme.accentMuted, letterSpacing:0.8, marginBottom:4 }}>{t.accountEmail.toUpperCase()}</div>
           <div style={{ fontSize:14, fontWeight:600, color:theme.accentDeep }}>{user.email || "—"}</div>
         </div>
 
+        {/* Change email */}
+        <div style={cardStyle}>
+          <div style={{ fontWeight:700, fontSize:14, color:theme.accentDeep, marginBottom:10 }}>✉️ {t.changeEmail}</div>
+          <input type="email" value={newEmail} onChange={e=>{setNewEmail(e.target.value);setEmailMsg("");}}
+            placeholder={t.newEmail}
+            onKeyDown={e=>e.key==="Enter"&&changeEmail()}
+            style={{ width:"100%", padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep, marginBottom:8 }}
+          />
+          {emailMsg && (
+            <div style={{ fontSize:12, color:emailMsg.includes("✓")?"#2A6A2A":"#C03030", marginBottom:8, fontWeight:600, lineHeight:1.4 }}>
+              {emailMsg}
+              {emailMsg.includes("✓") && <div style={{ fontSize:11, fontWeight:400, marginTop:4, color:"#4A8A4A" }}>{t.emailChangedInfo}</div>}
+            </div>
+          )}
+          <button onClick={changeEmail} disabled={loading || !newEmail} style={{
+            width:"100%", padding:"11px", borderRadius:12,
+            background: (!newEmail||loading) ? theme.cardBorder : `linear-gradient(135deg,${theme.accent},${theme.accentDeep})`,
+            color:"#fff", border:"none", cursor:(!newEmail||loading)?"default":"pointer", fontWeight:700, fontSize:14,
+          }}>{loading ? "…" : t.changeEmail}</button>
+        </div>
+
         {/* Change password */}
-        <div style={{ background:theme.pill, borderRadius:16, padding:16, marginBottom:16 }}>
-          <div style={{ fontWeight:700, fontSize:14, color:theme.accentDeep, marginBottom:12 }}>🔑 {t.changePassword}</div>
+        <div style={cardStyle}>
+          <div style={{ fontWeight:700, fontSize:14, color:theme.accentDeep, marginBottom:10 }}>🔑 {t.changePassword}</div>
           <input type="password" value={newPw} onChange={e=>setNewPw(e.target.value)}
             placeholder={t.newPassword}
             style={{ width:"100%", padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep, marginBottom:8 }}
@@ -1282,19 +1414,19 @@ function ProfileScreen({ user, lang, theme, onClose, onLogout }) {
           <input type="password" value={confirmPw} onChange={e=>setConfirmPw(e.target.value)}
             placeholder={t.confirmPassword}
             onKeyDown={e=>e.key==="Enter"&&changePassword()}
-            style={{ width:"100%", padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep, marginBottom:10 }}
+            style={{ width:"100%", padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep, marginBottom:8 }}
           />
-          {pwMsg && <div style={{ fontSize:12, color: pwMsg.includes("✓") ? "#2A6A2A" : "#C03030", marginBottom:8, fontWeight:600 }}>{pwMsg}</div>}
-          <button onClick={changePassword} disabled={loading || !newPw} style={{
+          {pwMsg && <div style={{ fontSize:12, color:pwMsg.includes("✓")?"#2A6A2A":"#C03030", marginBottom:8, fontWeight:600 }}>{pwMsg}</div>}
+          <button onClick={changePassword} disabled={loading||!newPw} style={{
             width:"100%", padding:"11px", borderRadius:12,
-            background: (!newPw||loading) ? theme.cardBorder : `linear-gradient(135deg,${theme.accent},${theme.accentDeep})`,
+            background:(!newPw||loading)?theme.cardBorder:`linear-gradient(135deg,${theme.accent},${theme.accentDeep})`,
             color:"#fff", border:"none", cursor:(!newPw||loading)?"default":"pointer", fontWeight:700, fontSize:14,
-          }}>{loading ? "…" : t.changePassword}</button>
+          }}>{loading?"…":t.changePassword}</button>
         </div>
 
         {/* GDPR note */}
-        <div style={{ background:`${theme.accent}10`, borderRadius:14, padding:"12px 16px", marginBottom:16, border:`1px solid ${theme.cardBorder}` }}>
-          <div style={{ fontSize:11, color:theme.accentMuted, lineHeight:1.6 }}>🇪🇺 {t.gdprNote}</div>
+        <div style={{ background:`${theme.accent}10`, borderRadius:14, padding:"12px 16px", marginBottom:14, border:`1px solid ${theme.cardBorder}` }}>
+          <div style={{ fontSize:11, color:theme.accentMuted, lineHeight:1.7 }}>🇪🇺 {t.gdprNote}</div>
         </div>
 
         {/* Delete account */}
@@ -1315,10 +1447,10 @@ function ProfileScreen({ user, lang, theme, onClose, onLogout }) {
               />
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={deleteAccount}
-                  disabled={deleteInput !== (lang==="sv"?"RADERA":"DELETE") || loading}
+                  disabled={deleteInput!==(lang==="sv"?"RADERA":"DELETE")||loading}
                   style={{
                     flex:1, padding:"11px", borderRadius:12,
-                    background: deleteInput===(lang==="sv"?"RADERA":"DELETE") ? "#C03030" : "#E0C0C0",
+                    background:deleteInput===(lang==="sv"?"RADERA":"DELETE")?"#C03030":"#E0C0C0",
                     color:"#fff", border:"none", cursor:"pointer", fontWeight:700, fontSize:14,
                   }}>{loading?"…":t.deleteAccount}</button>
                 <button onClick={()=>{setShowDelete(false);setDeleteInput("");}} style={{
@@ -1336,6 +1468,7 @@ function ProfileScreen({ user, lang, theme, onClose, onLogout }) {
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
+  const { maxW } = useViewport();
   const [lang, setLang] = useLS("saldo_ui_lang", "sv");
   const t = T[lang];
   const theme = THEMES[0];
@@ -1415,7 +1548,7 @@ function LoginScreen({ onLogin }) {
           }}>{t.switchLang}</button>
         </div>
 
-        <div style={{ padding:"28px 20px", flex:1, maxWidth:480, width:"100%", margin:"0 auto" }}>
+        <div style={{ padding:"28px 20px", flex:1, maxWidth: maxW === "100%" ? 480 : maxW, width:"100%", margin:"0 auto" }}>
 
           {/* Info/error banners */}
           {info && (
@@ -1583,9 +1716,10 @@ export default function App() {
 }
 
 function AppInner({ user, onLogout }) {
-  const [lang, setLang]         = useLS("saldo_lang", "sv");
-  const [currency, setCurrency] = useLS("saldo_currency", "SEK");
-  const [themeId, setThemeId]   = useLS("saldo_theme", "blue");
+  const { maxW, isTablet }              = useViewport();
+  const [lang, setLang]                 = useLS("saldo_lang", "sv");
+  const [currency, setCurrency]         = useLS("saldo_currency", "SEK");
+  const [themeId, setThemeId]           = useLS("saldo_theme", "blue");
   const theme = THEMES.find(th => th.id === themeId) || THEMES[0];
 
   const [activeTab, setActiveTab]         = useState("monthly");
@@ -1705,6 +1839,28 @@ function AppInner({ user, onLogout }) {
     setTimeout(() => setSourceFlash(""), 2000);
   }
 
+  function copyIncomeSourceToMonths(source, months) {
+    setYearData(prev => prev.map((m, i) => {
+      if (!months.includes(i)) return m;
+      const sources = m.incomeSources || [];
+      const exists = sources.find(s => s.name === source.name);
+      if (exists) return { ...m, incomeSources: sources.map(s => s.name === source.name ? { ...s, amount: source.amount } : s) };
+      return { ...m, incomeSources: [...sources, { ...source, id: Date.now() + Math.random() }] };
+    }));
+  }
+
+  function editIncomeSourceForMonths(source, months, newAmount) {
+    const v = parseFloat(newAmount);
+    if (isNaN(v) || v < 0) return;
+    setYearData(prev => prev.map((m, i) => {
+      if (!months.includes(i)) return m;
+      const sources = m.incomeSources || [];
+      const exists = sources.find(s => s.name === source.name);
+      if (exists) return { ...m, incomeSources: sources.map(s => s.name === source.name ? { ...s, amount: v } : s) };
+      return { ...m, incomeSources: [...sources, { ...source, id: Date.now() + Math.random(), amount: v }] };
+    }));
+  }
+
   function addBucket() {
     const name = newName.trim();
     const budget = parseFloat(newBudget);
@@ -1807,14 +1963,18 @@ function AppInner({ user, onLogout }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
-        body{background:${theme.bodyBg};font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
+        html{height:-webkit-fill-available;}
+        body{background:${theme.bodyBg};font-family:'Plus Jakarta Sans',system-ui,sans-serif;min-height:100vh;min-height:-webkit-fill-available;}
         input:focus,select:focus{outline:none;}
         input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
         ::-webkit-scrollbar{width:4px;}
         ::-webkit-scrollbar-thumb{background:${theme.scrollThumb};border-radius:2px;}
+        @media(min-width:600px){.tryvi-inner{max-width:540px;margin:0 auto;}}
+        @media(min-width:1024px){.tryvi-inner{max-width:480px;}}
       `}</style>
 
       <div style={{ minHeight:"100vh", background:theme.bg, paddingBottom:80 }}>
+        <div className="tryvi-inner">
 
         {/* Header */}
         <div style={{ padding:"52px 20px 22px", background:theme.header, borderRadius:"0 0 32px 32px", marginBottom:18, boxShadow:`0 8px 40px ${theme.accentDeep}60` }}>
@@ -1937,11 +2097,13 @@ function AppInner({ user, onLogout }) {
                   {/* Source rows */}
                   {(month.incomeSources||[]).map(src => (
                     <IncomeSourceRow
-                      key={src.id} source={src} currency={currency} t={t} theme={theme}
+                      key={src.id} source={src} currency={currency} t={t} lang={lang} theme={theme}
                       flashing={sourceFlash === src.id}
                       onUpdate={val => updateSourceAmount(src.id, val)}
                       onDelete={() => deleteIncomeSource(src.id)}
                       onApplyToAll={() => applySourceToAllMonths(src)}
+                      onCopyToMonths={months => copyIncomeSourceToMonths(src, months)}
+                      onEditForMonths={(months, amt) => editIncomeSourceForMonths(src, months, amt)}
                     />
                   ))}
 
@@ -2166,6 +2328,7 @@ function AppInner({ user, onLogout }) {
             )}
           </div>
         </div>
+        </div> {/* .tryvi-inner */}
       </div>
 
       {/* Profile modal */}
