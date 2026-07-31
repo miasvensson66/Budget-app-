@@ -616,20 +616,11 @@ function IncomeSourceRow({ source, currency, t, lang, flashing, onUpdate, onDele
             }}>{fmt(source.amount, currency)}</button>
           )}
 
-          {/* Expand toggle */}
+          {/* Expand toggle — tap to see month options */}
           <button onClick={()=>setExpanded(e=>!e)} style={{
             background:"rgba(255,255,255,0.1)", border:"none", borderRadius:8,
-            padding:"5px 8px", cursor:"pointer", color:"#C4A882", fontSize:12,
+            padding:"6px 10px", cursor:"pointer", color:"#C4A882", fontSize:12, fontWeight:600,
           }}>{expanded ? "▲" : "▼"}</button>
-
-          {/* Apply to all */}
-          <button onClick={handleCopyAll} title={t.applySourceToAll} style={{
-            background: flashing||flash==="all" ? "rgba(74,170,74,0.3)" : "rgba(255,255,255,0.1)",
-            border:`1px solid ${flashing||flash==="all"?"#6AAA6A":"rgba(255,255,255,0.15)"}`,
-            color: flashing||flash==="all" ? "#A0E0A0" : "#C4A882",
-            borderRadius:8, padding:"5px 8px", cursor:"pointer", fontSize:11, fontWeight:600,
-            transition:"all 0.3s", flexShrink:0,
-          }}>{flashing||flash==="all" ? "✓" : "📅"}</button>
 
           {/* Delete */}
           <button onClick={onDelete} style={{
@@ -637,23 +628,42 @@ function IncomeSourceRow({ source, currency, t, lang, flashing, onUpdate, onDele
           }}>{t.deleteSource}</button>
         </div>
 
-        {/* Expanded action buttons */}
+        {/* Expanded action buttons — same style as BucketCard */}
         {expanded && (
-          <div style={{ padding:"0 12px 12px", display:"flex", gap:8 }}>
-            <button onClick={()=>setModal("copy")} style={{
-              flex:1, padding:"8px 10px", borderRadius:10,
-              border:`1.5px solid ${theme?.inputBorder||"#7AAAD8"}`,
-              background: flash==="copy" ? "#E0F4EA" : "rgba(255,255,255,0.08)",
-              color: flash==="copy" ? "#1A6A3A" : "#C4A882",
-              cursor:"pointer", fontSize:11, fontWeight:600,
-            }}>{flash==="copy" ? "✓" : "📋 " + t.applyIncomeToMonths}</button>
-            <button onClick={()=>setModal("edit")} style={{
-              flex:1, padding:"8px 10px", borderRadius:10,
-              border:`1.5px solid ${theme?.inputBorder||"#7AAAD8"}`,
-              background: flash==="edit" ? "#E0F4EA" : "rgba(255,255,255,0.08)",
-              color: flash==="edit" ? "#1A6A3A" : "#C4A882",
-              cursor:"pointer", fontSize:11, fontWeight:600,
-            }}>{flash==="edit" ? "✓" : "💰 " + t.editIncomeForMonths}</button>
+          <div style={{ padding:"0 12px 14px" }}>
+            {/* Row 1: Save to all + Copy to months */}
+            <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+              <button onClick={handleCopyAll} style={{
+                flex:1, padding:"9px 10px", borderRadius:12,
+                border:`1.5px solid ${theme?.inputBorder||"#7AAAD8"}`,
+                background: flash==="all" ? (theme?.accentDeep||"#1A3A7A") : "rgba(255,255,255,0.08)",
+                color: flash==="all" ? "#fff" : "#C4A882",
+                cursor:"pointer", fontSize:11, fontWeight:700, transition:"all 0.35s",
+              }}>
+                {flash==="all" ? t.applySourceToAllDone : "📅 " + t.copyIncomeToAll}
+              </button>
+              <button onClick={()=>setModal("copy")} style={{
+                flex:1, padding:"9px 10px", borderRadius:12,
+                border:`1.5px solid ${theme?.inputBorder||"#7AAAD8"}`,
+                background: flash==="copy" ? "#E0F4EA" : "rgba(255,255,255,0.08)",
+                color: flash==="copy" ? "#1A6A3A" : "#C4A882",
+                cursor:"pointer", fontSize:11, fontWeight:600, transition:"all 0.3s",
+              }}>
+                {flash==="copy" ? "✓ " + t.bucketCopied : "📋 " + t.applyIncomeToMonths}
+              </button>
+            </div>
+            {/* Row 2: Edit amount for months */}
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={()=>setModal("edit")} style={{
+                flex:1, padding:"9px 10px", borderRadius:12,
+                border:`1.5px solid ${theme?.cardBorder||"#B8D0EC"}`,
+                background: flash==="edit" ? "#E0F4EA" : "rgba(255,255,255,0.08)",
+                color: flash==="edit" ? "#1A6A3A" : "#C4A882",
+                cursor:"pointer", fontSize:11, fontWeight:600, transition:"all 0.3s",
+              }}>
+                {flash==="edit" ? "✓ Klart" : "💰 " + t.editIncomeForMonths}
+              </button>
+            </div>
           </div>
         )}
       </div>
