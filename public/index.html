@@ -2,20 +2,22 @@
 <html lang="sv">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
     <meta name="theme-color" content="#1A2F52" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="description" content="Saldo — Din personliga budgetkompis" />
-    <title>Saldo</title>
+    <meta name="description" content="Tryvi — Din trygga budgetkompis" />
+    <title>Tryvi</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body, #root { height: 100%; }
+      html, body, #root { height: 100%; min-height: -webkit-fill-available; }
       body {
         background: #DDEAF8;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         overscroll-behavior: none;
+        -webkit-text-size-adjust: 100%;
       }
     </style>
   </head>
