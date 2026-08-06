@@ -29,7 +29,7 @@ function useViewport() {
 // ─── Translations ─────────────────────────────────────────────────────────────
 const T = {
   en: {
-    appTitle: "Tryvi", appSubtitle: "Your trusted budget companion",
+    appTitle: "Spary", appSubtitle: "Your trusted budget companion",
     monthly: "Monthly Budget", overview: "Overview",
     income: "Monthly Income", incomePlaceholder: "e.g. 35000",
     addBucket: "+ Add Bucket", bucketName: "Name (e.g. Rent)",
@@ -106,9 +106,33 @@ const T = {
     spentLabel2: "Spent",
     incomeMinusBudget: "Income − Budget",
     defaultCategories: ["Accommodation","Subscriptions & Contracts","Car & Transport"],
+    importBank: "Import bank statement",
+    importTab: "Import",
+    importDrop: "Drop Swedbank CSV here or tap to browse",
+    importSupported: "Supports Swedbank CSV export",
+    importHowTo: "How to export from Swedbank",
+    importHowToSteps: ["1. Log in to Swedbank app or web", "2. Go to your account → Transactions", "3. Click Export / Download", "4. Choose CSV format", "5. Upload the file here"],
+    importParsing: "Reading your transactions…",
+    importMatching: "AI is matching transactions to buckets…",
+    importReview: "Review transactions",
+    importApprove: "Add to budget",
+    importSkip: "Skip",
+    importApproveAll: "Approve all",
+    importDone: "✓ Added to budget!",
+    importCount: (n) => `${n} transactions found`,
+    importUnmatched: "Unmatched — choose bucket",
+    importNoBuckets: "No buckets yet — add buckets first",
+    importAlreadyAdded: "Already added",
+    importTotal: "Total spending",
+    importMonth: "Month",
+    importSelectBucket: "Choose bucket",
+    importClose: "Close",
+    importError: "Could not read file. Make sure it is a Swedbank CSV export.",
+    importNone: "No transactions to import",
+    importAdded: (n) => `✓ ${n} transactions added`,
   },
   sv: {
-    appTitle: "Tryvi", appSubtitle: "Din trygga budgetkompis",
+    appTitle: "Spary", appSubtitle: "Din trygga budgetkompis",
     monthly: "Månadsbudget", overview: "Översikt",
     income: "Månadsinkomst", incomePlaceholder: "t.ex. 35000",
     addBucket: "+ Lägg till hink", bucketName: "Namn (t.ex. Hyra)",
@@ -187,6 +211,30 @@ const T = {
     spentLabel2: "Utgifter",
     incomeMinusBudget: "Inkomst − Budgeterat",
     defaultCategories: ["Boende","Prenumerationer & Avtal","Bil & Transport"],
+    importBank: "Importera kontoutdrag",
+    importTab: "Importera",
+    importDrop: "Släpp Swedbank CSV här eller tryck för att välja fil",
+    importSupported: "Stödjer Swedbank CSV-export",
+    importHowTo: "Hur exporterar jag från Swedbank?",
+    importHowToSteps: ["1. Logga in på Swedbank app eller webb", "2. Gå till ditt konto → Transaktioner", "3. Klicka på Exportera / Ladda ner", "4. Välj CSV-format", "5. Ladda upp filen här"],
+    importParsing: "Läser dina transaktioner…",
+    importMatching: "AI matchar transaktioner mot hinkar…",
+    importReview: "Granska transaktioner",
+    importApprove: "Lägg till i budget",
+    importSkip: "Hoppa över",
+    importApproveAll: "Godkänn alla",
+    importDone: "✓ Tillagda i budgeten!",
+    importCount: (n) => `${n} transaktioner hittade`,
+    importUnmatched: "Omatchad — välj hink",
+    importNoBuckets: "Inga hinkar än — lägg till hinkar först",
+    importAlreadyAdded: "Redan tillagd",
+    importTotal: "Total utgift",
+    importMonth: "Månad",
+    importSelectBucket: "Välj hink",
+    importClose: "Stäng",
+    importError: "Kunde inte läsa filen. Kontrollera att det är en Swedbank CSV-export.",
+    importNone: "Inga transaktioner att importera",
+    importAdded: (n) => `✓ ${n} transaktioner tillagda`,
   }
 };
 
@@ -1001,6 +1049,417 @@ function OverviewTab({ yearData, lang, currency, categories, theme }) {
   );
 }
 
+// ─── Swedbank CSV Parser ──────────────────────────────────────────────────────
+// Swedbank CSV format (semicolon-separated, Swedish headers):
+// "Datum";"Referens";"Beskrivning";"Kategori";"Belopp";"Saldo"
+// or newer format: Date;Transaction;Category;Amount;Balance
+function parseSwedbank(csvText) {
+  const lines = csvText.trim().split(/\r?\n/);
+  const txns = [];
+
+  // Find header row
+  let headerIdx = -1;
+  let sep = ";";
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const l = lines[i];
+    if (l.includes("Datum") || l.includes("datum") || l.includes("Date") || l.includes("Bokföringsdag")) {
+      headerIdx = i;
+      sep = l.includes(";") ? ";" : ",";
+      break;
+    }
+  }
+  if (headerIdx === -1) throw new Error("header_not_found");
+
+  const headers = lines[headerIdx].split(sep).map(h => h.replace(/"/g,"").trim().toLowerCase());
+
+  // Find relevant columns
+  const dateCol   = headers.findIndex(h => h.includes("datum") || h.includes("date") || h.includes("bokf"));
+  const descCol   = headers.findIndex(h => h.includes("beskrivning") || h.includes("text") || h.includes("transaktion") || h.includes("description") || h.includes("referens"));
+  const amountCol = headers.findIndex(h => h.includes("belopp") || h.includes("amount"));
+
+  if (dateCol === -1 || amountCol === -1) throw new Error("columns_not_found");
+
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = line.split(sep).map(c => c.replace(/"/g,"").trim());
+    if (cols.length < Math.max(dateCol, amountCol) + 1) continue;
+
+    const rawAmount = cols[amountCol].replace(/\s/g,"").replace(",",".").replace("−","-");
+    const amount = parseFloat(rawAmount);
+    if (isNaN(amount) || amount >= 0) continue; // Only expenses (negative amounts)
+
+    const dateStr = cols[dateCol];
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) continue;
+
+    const desc = descCol !== -1 ? cols[descCol] : cols[1] || "";
+
+    txns.push({
+      id: `${dateStr}-${desc}-${amount}`,
+      date: dateStr,
+      month: date.getMonth(),
+      year: date.getFullYear(),
+      description: desc,
+      amount: Math.abs(amount),
+      bucketId: null,
+      status: "pending", // pending | approved | skipped
+    });
+  }
+  return txns;
+}
+
+// ─── AI Bucket Matcher ────────────────────────────────────────────────────────
+async function matchTransactionsToBuckets(transactions, buckets, lang) {
+  if (!buckets.length || !transactions.length) return transactions;
+
+  const bucketList = buckets.map(b => `- "${b.name}" (id: ${b.id})`).join("\n");
+  const txList = transactions.slice(0, 50).map((t,i) =>
+    `${i}: ${t.description} | ${t.amount} SEK | ${t.date}`
+  ).join("\n");
+
+  const prompt = lang === "sv"
+    ? `Du är ett budgetassistentsystem. Matcha varje transaktion nedan mot den mest lämpliga budgethinken.
+
+Tillgängliga hinkar:
+${bucketList}
+
+Transaktioner (index: beskrivning | belopp | datum):
+${txList}
+
+Svara ENDAST med ett JSON-objekt där nyckeln är transaktionsindex (som sträng) och värdet är hinkens id. Om ingen hink passar, använd null.
+Exempel: {"0": "hink-id-123", "1": null, "2": "hink-id-456"}`
+    : `You are a budget assistant. Match each transaction to the most appropriate budget bucket.
+
+Available buckets:
+${bucketList}
+
+Transactions (index: description | amount | date):
+${txList}
+
+Respond ONLY with a JSON object where the key is the transaction index (as string) and the value is the bucket id. If no bucket fits, use null.
+Example: {"0": "bucket-id-123", "1": null, "2": "bucket-id-456"}`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || "{}";
+    const clean = text.replace(/```json|```/g,"").trim();
+    const matches = JSON.parse(clean);
+    return transactions.map((t, i) => ({
+      ...t,
+      bucketId: matches[String(i)] || null,
+    }));
+  } catch (e) {
+    console.error("AI matching failed:", e);
+    return transactions; // Return unmatched if AI fails
+  }
+}
+
+// ─── Import Tab ───────────────────────────────────────────────────────────────
+function ImportTab({ lang, currency, theme, yearData, setYearData, categories }) {
+  const t = T[lang];
+  const [step, setStep]             = useState("upload"); // upload | parsing | review | done
+  const [transactions, setTxns]     = useState([]);
+  const [error, setError]           = useState("");
+  const [showHowTo, setShowHowTo]   = useState(false);
+  const [doneCount, setDoneCount]   = useState(0);
+  const fileRef = useRef(null);
+
+  // Collect all buckets across all months for matching
+  const allBuckets = [];
+  const seen = new Set();
+  yearData.forEach(m => m.buckets.forEach(b => {
+    if (!seen.has(b.name)) { seen.add(b.name); allBuckets.push(b); }
+  }));
+
+  async function handleFile(file) {
+    if (!file) return;
+    setError("");
+    setStep("parsing");
+    try {
+      const text = await file.text();
+      const txns = parseSwedbank(text);
+      if (!txns.length) { setError(t.importNone); setStep("upload"); return; }
+      setStep("matching");
+      const matched = await matchTransactionsToBuckets(txns, allBuckets, lang);
+      setTxns(matched);
+      setStep("review");
+    } catch (e) {
+      console.error(e);
+      setError(t.importError);
+      setStep("upload");
+    }
+  }
+
+  function updateTxn(id, changes) {
+    setTxns(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
+  }
+
+  function approveAll() {
+    setTxns(prev => prev.map(t => t.status === "pending" ? { ...t, status: "approved" } : t));
+  }
+
+  function commitApproved() {
+    const approved = transactions.filter(t => t.status === "approved" && t.bucketId);
+    if (!approved.length) { setStep("done"); setDoneCount(0); return; }
+
+    setYearData(prev => {
+      const next = prev.map((m, mi) => {
+        const monthTxns = approved.filter(t => t.month === mi);
+        if (!monthTxns.length) return m;
+        return {
+          ...m,
+          buckets: m.buckets.map(b => {
+            const spent = monthTxns.filter(t => t.bucketId === b.id).reduce((s,t) => s + t.amount, 0);
+            return spent > 0 ? { ...b, spent: b.spent + spent } : b;
+          })
+        };
+      });
+      return next;
+    });
+
+    setDoneCount(approved.length);
+    setStep("done");
+  }
+
+  function reset() {
+    setStep("upload"); setTxns([]); setError(""); setDoneCount(0);
+  }
+
+  // Group transactions by month for display
+  const byMonth = {};
+  transactions.forEach(t => {
+    const key = `${t.year}-${t.month}`;
+    if (!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push(t);
+  });
+
+  const totalAmount = transactions.filter(t=>t.status!=="skipped").reduce((s,t)=>s+t.amount,0);
+  const pendingCount = transactions.filter(t=>t.status==="pending").length;
+  const approvedCount = transactions.filter(t=>t.status==="approved").length;
+
+  return (
+    <div>
+      {/* Upload step */}
+      {(step === "upload") && (
+        <>
+          {/* How-to accordion */}
+          <div style={{ background:theme.card, border:`1px solid ${theme.cardBorder}`, borderRadius:16, marginBottom:14, overflow:"hidden" }}>
+            <button onClick={()=>setShowHowTo(s=>!s)} style={{
+              width:"100%", padding:"14px 16px", background:"none", border:"none", cursor:"pointer",
+              display:"flex", justifyContent:"space-between", alignItems:"center",
+            }}>
+              <span style={{ fontWeight:700, fontSize:14, color:theme.accentDeep }}>📋 {t.importHowTo}</span>
+              <span style={{ color:theme.accentMuted, fontSize:14 }}>{showHowTo?"▲":"▼"}</span>
+            </button>
+            {showHowTo && (
+              <div style={{ padding:"0 16px 14px" }}>
+                {t.importHowToSteps.map((s,i) => (
+                  <div key={i} style={{ fontSize:13, color:theme.accentMuted, padding:"4px 0", lineHeight:1.5 }}>{s}</div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Drop zone */}
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); }}
+            style={{
+              border:`2px dashed ${theme.inputBorder}`, borderRadius:20,
+              padding:"48px 24px", textAlign:"center", cursor:"pointer",
+              background:`${theme.accent}08`, transition:"background 0.2s",
+            }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>🏦</div>
+            <div style={{ fontWeight:700, fontSize:15, color:theme.accentDeep, marginBottom:6 }}>
+              {t.importDrop}
+            </div>
+            <div style={{ fontSize:12, color:theme.accentMuted }}>{t.importSupported}</div>
+            <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display:"none" }}
+              onChange={e => handleFile(e.target.files[0])} />
+          </div>
+
+          {error && (
+            <div style={{ marginTop:12, padding:"12px 16px", background:"#FFE8E8", borderRadius:12, border:"1px solid #F0A0A0", fontSize:13, color:"#C03030" }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          {allBuckets.length === 0 && (
+            <div style={{ marginTop:12, padding:"12px 16px", background:`${theme.accent}12`, borderRadius:12, border:`1px solid ${theme.cardBorder}`, fontSize:13, color:theme.accentMuted }}>
+              💡 {t.importNoBuckets}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Loading steps */}
+      {(step === "parsing" || step === "matching") && (
+        <div style={{ textAlign:"center", padding:"60px 20px" }}>
+          <div style={{ fontSize:40, marginBottom:16 }}>
+            {step === "parsing" ? "📄" : "🤖"}
+          </div>
+          <div style={{ fontWeight:700, fontSize:16, color:theme.accentDeep, marginBottom:8 }}>
+            {step === "parsing" ? t.importParsing : t.importMatching}
+          </div>
+          <div style={{
+            width:40, height:4, background:theme.accent, borderRadius:2,
+            margin:"16px auto 0", animation:"pulse 1s infinite",
+          }}/>
+          <style>{`@keyframes pulse{0%,100%{opacity:0.3}50%{opacity:1}}`}</style>
+        </div>
+      )}
+
+      {/* Review step */}
+      {step === "review" && (
+        <>
+          {/* Summary bar */}
+          <div style={{
+            background:theme.header, borderRadius:16, padding:"14px 16px", marginBottom:14,
+            display:"flex", justifyContent:"space-between", alignItems:"center",
+          }}>
+            <div>
+              <div style={{ fontSize:11, color:theme.accentMuted, letterSpacing:1 }}>{t.importReview.toUpperCase()}</div>
+              <div style={{ fontSize:13, color:"#fff", marginTop:2 }}>
+                {t.importCount(transactions.length)} · {approvedCount} {lang==="sv"?"godkända":"approved"}
+              </div>
+            </div>
+            <div style={{ fontWeight:800, fontSize:18, color:"#fff" }}>{fmt(totalAmount, currency)}</div>
+          </div>
+
+          {/* Approve all + Confirm buttons */}
+          <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+            <button onClick={approveAll} style={{
+              flex:1, padding:"11px", borderRadius:14,
+              border:`1.5px solid ${theme.inputBorder}`, background:theme.pill,
+              color:theme.pillText, cursor:"pointer", fontWeight:700, fontSize:13,
+            }}>✓ {t.importApproveAll}</button>
+            <button onClick={commitApproved} disabled={approvedCount === 0} style={{
+              flex:1, padding:"11px", borderRadius:14,
+              background: approvedCount > 0 ? `linear-gradient(135deg,${theme.accent},${theme.accentDeep})` : theme.cardBorder,
+              color:"#fff", border:"none", cursor: approvedCount > 0 ? "pointer" : "default",
+              fontWeight:700, fontSize:13,
+            }}>💾 {t.importApprove} ({approvedCount})</button>
+          </div>
+
+          {/* Transaction groups by month */}
+          {Object.entries(byMonth).sort(([a],[b])=>a.localeCompare(b)).map(([key, txns]) => {
+            const [year, month] = key.split("-").map(Number);
+            const monthName = `${t.fullMonths[month]} ${year}`;
+            return (
+              <div key={key} style={{ marginBottom:16 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:theme.accentMuted, letterSpacing:1, marginBottom:8 }}>
+                  {monthName.toUpperCase()}
+                </div>
+                {txns.map(txn => {
+                  const bucket = allBuckets.find(b => b.id === txn.bucketId);
+                  return (
+                    <div key={txn.id} style={{
+                      background: txn.status === "approved" ? `${theme.accent}10`
+                                : txn.status === "skipped"  ? "rgba(0,0,0,0.04)"
+                                : theme.card,
+                      border:`1px solid ${txn.status==="approved" ? theme.accent+"40" : theme.cardBorder}`,
+                      borderRadius:14, padding:"12px 14px", marginBottom:8,
+                      opacity: txn.status === "skipped" ? 0.5 : 1,
+                    }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                        <div style={{ flex:1, minWidth:0, marginRight:8 }}>
+                          <div style={{ fontWeight:600, fontSize:13, color:theme.accentDeep, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            {txn.description}
+                          </div>
+                          <div style={{ fontSize:11, color:theme.accentMuted, marginTop:2 }}>{txn.date}</div>
+                        </div>
+                        <div style={{ fontWeight:700, fontSize:14, color:theme.accentDeep, flexShrink:0 }}>
+                          {fmt(txn.amount, currency)}
+                        </div>
+                      </div>
+
+                      {/* Bucket selector */}
+                      <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                        <select
+                          value={txn.bucketId || ""}
+                          onChange={e => updateTxn(txn.id, { bucketId: e.target.value || null })}
+                          style={{
+                            flex:1, padding:"7px 10px", borderRadius:10,
+                            border:`1.5px solid ${txn.bucketId ? theme.accent : theme.cardBorder}`,
+                            background:"white", fontSize:12, color:theme.accentDeep,
+                          }}>
+                          <option value="">{t.importSelectBucket}</option>
+                          {allBuckets.map(b => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                          ))}
+                        </select>
+
+                        {txn.status === "skipped" ? (
+                          <button onClick={() => updateTxn(txn.id, { status:"pending" })} style={{
+                            padding:"7px 10px", borderRadius:10, border:`1px solid ${theme.cardBorder}`,
+                            background:theme.pill, color:theme.pillText, cursor:"pointer", fontSize:11, fontWeight:600,
+                          }}>↩</button>
+                        ) : txn.status === "approved" ? (
+                          <button onClick={() => updateTxn(txn.id, { status:"pending" })} style={{
+                            padding:"7px 10px", borderRadius:10, background:`${theme.accent}20`,
+                            border:`1px solid ${theme.accent}`, color:theme.accentDeep, cursor:"pointer", fontSize:11, fontWeight:700,
+                          }}>✓</button>
+                        ) : (
+                          <>
+                            <button onClick={() => { if(txn.bucketId) updateTxn(txn.id, { status:"approved" }); }} style={{
+                              padding:"7px 12px", borderRadius:10,
+                              background: txn.bucketId ? `linear-gradient(135deg,${theme.accent},${theme.accentDeep})` : theme.cardBorder,
+                              color:"#fff", border:"none", cursor: txn.bucketId?"pointer":"default", fontSize:11, fontWeight:700,
+                            }}>{t.importApprove}</button>
+                            <button onClick={() => updateTxn(txn.id, { status:"skipped" })} style={{
+                              padding:"7px 10px", borderRadius:10, border:`1px solid ${theme.cardBorder}`,
+                              background:"transparent", color:theme.accentMuted, cursor:"pointer", fontSize:11,
+                            }}>{t.importSkip}</button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+
+          <button onClick={reset} style={{
+            width:"100%", padding:13, borderRadius:16, border:`1.5px solid ${theme.cardBorder}`,
+            background:"transparent", color:theme.accentMuted, cursor:"pointer", fontSize:14, marginTop:4,
+          }}>{t.importClose}</button>
+        </>
+      )}
+
+      {/* Done step */}
+      {step === "done" && (
+        <div style={{ textAlign:"center", padding:"60px 20px" }}>
+          <div style={{ fontSize:56, marginBottom:16 }}>🎉</div>
+          <div style={{ fontWeight:800, fontSize:22, color:theme.accentDeep, marginBottom:8 }}>
+            {t.importAdded(doneCount)}
+          </div>
+          <div style={{ fontSize:13, color:theme.accentMuted, marginBottom:28 }}>
+            {lang==="sv" ? "Utgifterna har lagts till i rätt månader och hinkar." : "Expenses have been added to the correct months and buckets."}
+          </div>
+          <button onClick={reset} style={{
+            padding:"13px 32px", borderRadius:16,
+            background:`linear-gradient(135deg,${theme.accent},${theme.accentDeep})`,
+            color:"#fff", border:"none", cursor:"pointer", fontWeight:700, fontSize:15,
+            boxShadow:`0 4px 16px ${theme.accent}44`,
+          }}>{lang==="sv" ? "Importera fler" : "Import more"}</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Savings Tab ──────────────────────────────────────────────────────────────
 function SavingsTab({ goals, setGoals, lang, currency, theme, yearData }) {
   const t = T[lang];
@@ -1714,7 +2173,7 @@ export default function App() {
       <div style={{ minHeight:"100vh", background:"#DDEAF8", display:"flex", alignItems:"center", justifyContent:"center" }}>
         <div style={{ textAlign:"center" }}>
           <div style={{ fontSize:40, marginBottom:12 }}>💰</div>
-          <div style={{ fontWeight:800, fontSize:24, color:"#1A2F52" }}>Tryvi</div>
+          <div style={{ fontWeight:800, fontSize:24, color:"#1A2F52" }}>Spary</div>
           <div style={{ fontSize:13, color:"#8AAAD8", marginTop:8 }}>Laddar…</div>
         </div>
       </div>
@@ -1772,7 +2231,7 @@ function AppInner({ user, onLogout }) {
       <div style={{ minHeight:"100vh", background:theme.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
         <div style={{ textAlign:"center", maxWidth:320 }}>
           <div style={{ fontSize:40, marginBottom:12 }}>💰</div>
-          <div style={{ fontWeight:800, fontSize:24, color:theme.accentDeep }}>Tryvi</div>
+          <div style={{ fontWeight:800, fontSize:24, color:theme.accentDeep }}>Spary</div>
           {dataError ? (
             <>
               <div style={{ fontSize:13, color:"#C03030", marginTop:12, padding:"12px 16px", background:"#FFE8E8", borderRadius:12, border:"1px solid #F0A0A0" }}>
@@ -2060,22 +2519,27 @@ function AppInner({ user, onLogout }) {
 
           {/* Tabs */}
           <div style={{ display:"flex", gap:6, marginTop:18 }}>
-            {["monthly","savings","overview"].map(tab=>(
+            {["monthly","savings","import","overview"].map(tab=>(
               <button key={tab} onClick={()=>setActiveTab(tab)} style={{
-                flex:1, padding:"11px", borderRadius:16,
+                flex:1, padding:"9px 4px", borderRadius:16,
                 background: activeTab===tab ? theme.accent : "transparent",
                 border: `1.5px solid ${activeTab===tab ? theme.accent : theme.headerBorder}`,
                 color: activeTab===tab ? "#fff" : theme.accentText,
-                cursor:"pointer", fontSize:13, fontWeight:activeTab===tab?700:500,
+                cursor:"pointer", fontSize:11, fontWeight:activeTab===tab?700:500,
                 boxShadow: activeTab===tab ? `0 4px 16px ${theme.accent}55` : "none",
-              }}>{tab==="monthly" ? t.monthly : tab==="savings" ? t.savings : t.overview}</button>
+              }}>
+                {tab==="monthly" ? t.monthly
+                 : tab==="savings" ? t.savings
+                 : tab==="import" ? "🏦"
+                 : t.overview}
+              </button>
             ))}
           </div>
         </div>
 
         <div style={{ padding:"0 16px" }}>
-          {/* Month pills — only on monthly tab */}
-          {activeTab !== "savings" && (
+          {/* Month pills — only on monthly and overview tabs */}
+          {activeTab !== "savings" && activeTab !== "import" && (
           <div style={{ overflowX:"auto", paddingBottom:8 }}>
             <div style={{ display:"flex", gap:6, width:"max-content" }}>
               {yearData.map((m,i)=>(
@@ -2091,6 +2555,8 @@ function AppInner({ user, onLogout }) {
               <OverviewTab yearData={yearData} lang={lang} currency={currency} categories={categories} theme={theme}/>
             ) : activeTab==="savings" ? (
               <SavingsTab goals={goals} setGoals={setGoals} lang={lang} currency={currency} theme={theme} yearData={yearData}/>
+            ) : activeTab==="import" ? (
+              <ImportTab lang={lang} currency={currency} theme={theme} yearData={yearData} setYearData={setYearData} categories={categories}/>
             ) : (
               <>
                 <div style={{ fontStyle:"italic", fontSize:22, color:theme.accentDeep, marginBottom:14, fontWeight:300 }}>
