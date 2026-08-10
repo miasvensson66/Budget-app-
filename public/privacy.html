@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Integritetspolicy / Privacy Policy — Sparybudget</title>
+  <style>
+    :root {
+      --dark: #1A2F52;
+      --mid: #4A80C8;
+      --light: #DDEAF8;
+      --text: #222;
+      --muted: #5A6A7A;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #F0F6FF;
+      color: var(--text);
+      line-height: 1.7;
+    }
+    header {
+      background: var(--dark);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header a { text-decoration: none; display: flex; align-items: center; gap: 10px; }
+    header .logo { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+    header .sub { font-size: 13px; color: #8AAAD8; }
+    .lang-switch {
+      margin-left: auto;
+      display: flex; gap: 8px;
+    }
+    .lang-switch a {
+      padding: 5px 12px; border-radius: 20px;
+      border: 1.5px solid #8AAAD8;
+      color: #C8DCF4; font-size: 12px; font-weight: 600;
+      text-decoration: none; transition: background 0.2s;
+    }
+    .lang-switch a.active { background: var(--mid); border-color: var(--mid); color: #fff; }
+
+    .container { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
+    .version-badge {
+      display: inline-block;
+      background: var(--light); color: var(--dark);
+      font-size: 12px; font-weight: 600;
+      padding: 4px 12px; border-radius: 20px;
+      margin-bottom: 24px;
+    }
+    h1 { font-size: 2rem; font-weight: 800; color: var(--dark); margin-bottom: 8px; }
+    h2 { font-size: 1.2rem; font-weight: 700; color: var(--mid); margin: 32px 0 10px; }
+    h3 { font-size: 1rem; font-weight: 700; color: var(--dark); margin: 20px 0 8px; }
+    p { margin-bottom: 12px; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { margin-bottom: 6px; }
+    .info-box {
+      background: var(--light);
+      border-left: 4px solid var(--mid);
+      border-radius: 0 12px 12px 0;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: 0.9rem;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9rem; }
+    th { background: var(--dark); color: #fff; padding: 10px 12px; text-align: left; }
+    td { padding: 9px 12px; border-bottom: 1px solid #C8D8EC; }
+    tr:nth-child(even) td { background: var(--light); }
+    .section { display: none; }
+    .section.active { display: block; }
+    footer {
+      text-align: center; padding: 24px;
+      font-size: 13px; color: var(--muted);
+      border-top: 1px solid #C8D8EC; margin-top: 40px;
+    }
+    footer a { color: var(--mid); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="/">
+    <span style="font-size:22px">💰</span>
+    <div>
+      <div class="logo">Sparybudget</div>
+    </div>
+  </a>
+  <div class="lang-switch">
+    <a href="#" class="active" onclick="showLang('sv',this)">🇸🇪 SV</a>
+    <a href="#" onclick="showLang('en',this)">🇬🇧 EN</a>
+  </div>
+</header>
+
+<div class="container">
+  <div class="version-badge">Version 1.0 · <span id="date"></span></div>
+
+  <!-- SWEDISH -->
+  <div class="section active" id="sv">
+    <h1>Integritetspolicy</h1>
+    <p style="color:var(--muted);font-size:0.9rem">Senast uppdaterad: <span class="date-sv"></span></p>
+    <p>Sparybudget värnar om din integritet. Den här policyn förklarar vilka personuppgifter vi samlar in, varför vi gör det och vilka rättigheter du har.</p>
+
+    <h2>1. Personuppgiftsansvarig</h2>
+    <p>Sparybudget är personuppgiftsansvarig för behandlingen av dina uppgifter.<br>Kontakt: <a href="mailto:privacy@sparybudget.com">privacy@sparybudget.com</a></p>
+
+    <h2>2. Vilka uppgifter samlar vi in?</h2>
+    <h3>2.1 Kontouppgifter</h3>
+    <ul>
+      <li>E-postadress (används för inloggning och kontakt)</li>
+      <li>Namn (frivilligt, används för att personalisera appen)</li>
+      <li>Krypterat lösenord (lagras aldrig i klartext)</li>
+    </ul>
+    <h3>2.2 Budgetdata</h3>
+    <ul>
+      <li>Inkomstkällor och belopp du anger</li>
+      <li>Budgetposter (hinkar) och kategorier</li>
+      <li>Transaktionsdata från importerade kontoutdrag</li>
+      <li>Sparmål och insättningar</li>
+    </ul>
+    <div class="info-box">⚠️ <strong>Vi lagrar aldrig</strong> bankkontonummer, personnummer, kortuppgifter eller andra känsliga finansiella identifierare.</div>
+    <h3>2.3 Tekniska uppgifter</h3>
+    <ul>
+      <li>Tidsstämplar för när data sparades</li>
+      <li>IP-adress och enhetstyp (via autentiseringstjänsten Supabase)</li>
+    </ul>
+
+    <h2>3. Varför behandlar vi dina uppgifter?</h2>
+    <table>
+      <tr><th>Ändamål</th><th>Laglig grund</th><th>Lagringstid</th></tr>
+      <tr><td>Tillhandahålla budgettjänsten</td><td>Avtal (Art. 6.1b GDPR)</td><td>Tills konto raderas</td></tr>
+      <tr><td>Autentisering och säkerhet</td><td>Berättigat intresse (Art. 6.1f)</td><td>Tills konto raderas</td></tr>
+      <tr><td>Förbättra tjänsten (aggregerad)</td><td>Berättigat intresse (Art. 6.1f)</td><td>Max 24 månader</td></tr>
+      <tr><td>Uppfylla rättsliga skyldigheter</td><td>Rättslig förpliktelse (Art. 6.1c)</td><td>Enligt lag</td></tr>
+    </table>
+
+    <h2>4. Var lagras dina uppgifter?</h2>
+    <p>Dina uppgifter lagras hos Supabase Inc. i ett datacenter i <strong>Stockholm, Sverige (EU)</strong>. Data lämnar inte EU/EES. Supabase är certifierat enligt SOC 2 Type 2.</p>
+    <div class="info-box">
+      🔒 <strong>Tekniska säkerhetsåtgärder:</strong><br>
+      • All datatrafik krypteras med TLS 1.3<br>
+      • Åtkomstkontroll med Row Level Security (RLS) — ingen annan användare kan läsa din data<br>
+      • Lösenord lagras aldrig i klartext (bcrypt-hashning)<br>
+      • Regelbundna automatiska säkerhetskopior
+    </div>
+
+    <h2>5. Delas dina uppgifter med någon?</h2>
+    <p>Vi säljer aldrig dina uppgifter. Vi delar dem inte med tredje part för marknadsföring. Vi använder dessa tjänsteleverantörer:</p>
+    <ul>
+      <li><strong>Supabase Inc.</strong> — datalagring och autentisering (data lagras i EU)</li>
+      <li><strong>Vercel Inc.</strong> — webbhosting (ingen persondata lagras hos Vercel)</li>
+      <li><strong>Anthropic PBC</strong> — AI-funktioner (beskrivningstext skickas för matchning, lagras ej)</li>
+    </ul>
+
+    <h2>6. Dina rättigheter</h2>
+    <ul>
+      <li><strong>Rätt till tillgång</strong> — begär en kopia av dina uppgifter</li>
+      <li><strong>Rätt till rättelse</strong> — korrigera felaktiga uppgifter</li>
+      <li><strong>Rätt till radering</strong> — radera ditt konto via Inställningar → Mitt konto</li>
+      <li><strong>Rätt till dataportabilitet</strong> — exportera din data i JSON-format</li>
+      <li><strong>Rätt att invända</strong> — mot behandling baserad på berättigat intresse</li>
+      <li><strong>Rätt att inge klagomål</strong> — till Integritetsskyddsmyndigheten (IMY), <a href="https://imy.se" target="_blank">imy.se</a></li>
+    </ul>
+    <p><strong>Kontakta oss på <a href="mailto:privacy@sparybudget.com">privacy@sparybudget.com</a> för att utöva dina rättigheter. Vi svarar inom 30 dagar.</strong></p>
+
+    <h2>7. Cookies</h2>
+    <p>Sparybudget använder inga spårningscookies. Vi använder en teknisk session-cookie för att hålla dig inloggad — denna kräver inget samtycke.</p>
+
+    <h2>8. Barn</h2>
+    <p>Sparybudget kräver att du är minst 16 år. Vi samlar inte medvetet in uppgifter om barn under 16 år.</p>
+
+    <h2>9. Ändringar</h2>
+    <p>Vi meddelar dig om väsentliga ändringar via e-post minst 30 dagar i förväg.</p>
+
+    <h2>10. Kontakt</h2>
+    <p>Sparybudget · <a href="mailto:privacy@sparybudget.com">privacy@sparybudget.com</a> · <a href="https://sparybudget.com">sparybudget.com</a></p>
+  </div>
+
+  <!-- ENGLISH -->
+  <div class="section" id="en">
+    <h1>Privacy Policy</h1>
+    <p style="color:var(--muted);font-size:0.9rem">Last updated: <span class="date-en"></span></p>
+    <p>Sparybudget cares about your privacy. This policy explains what personal data we collect, why we collect it, and what rights you have.</p>
+
+    <h2>1. Data Controller</h2>
+    <p>Sparybudget is the data controller for the processing of your personal data.<br>Contact: <a href="mailto:privacy@sparybudget.com">privacy@sparybudget.com</a></p>
+
+    <h2>2. What data do we collect?</h2>
+    <h3>2.1 Account data</h3>
+    <ul>
+      <li>Email address (used for login and communication)</li>
+      <li>Name (optional, used to personalise the app)</li>
+      <li>Encrypted password (never stored in plaintext)</li>
+    </ul>
+    <h3>2.2 Budget data</h3>
+    <ul>
+      <li>Income sources and amounts you enter</li>
+      <li>Budget items (buckets) and categories</li>
+      <li>Transaction data from imported bank statements</li>
+      <li>Savings goals and contributions</li>
+    </ul>
+    <div class="info-box">⚠️ <strong>We never store</strong> bank account numbers, personal ID numbers, card details or other sensitive financial identifiers.</div>
+    <h3>2.3 Technical data</h3>
+    <ul>
+      <li>Timestamps for when data was saved</li>
+      <li>IP address and device type (via Supabase authentication)</li>
+    </ul>
+
+    <h2>3. Why do we process your data?</h2>
+    <table>
+      <tr><th>Purpose</th><th>Legal basis</th><th>Retention</th></tr>
+      <tr><td>Providing the budget service</td><td>Contract (Art. 6.1b GDPR)</td><td>Until account deleted</td></tr>
+      <tr><td>Authentication and security</td><td>Legitimate interest (Art. 6.1f)</td><td>Until account deleted</td></tr>
+      <tr><td>Service improvement (aggregated)</td><td>Legitimate interest (Art. 6.1f)</td><td>Max 24 months</td></tr>
+      <tr><td>Legal obligations</td><td>Legal obligation (Art. 6.1c)</td><td>As required by law</td></tr>
+    </table>
+
+    <h2>4. Where is your data stored?</h2>
+    <p>Your data is stored with Supabase Inc. in a data centre in <strong>Stockholm, Sweden (EU)</strong>. Data does not leave the EU/EEA. Supabase is SOC 2 Type 2 certified.</p>
+    <div class="info-box">
+      🔒 <strong>Technical security measures:</strong><br>
+      • All data traffic encrypted with TLS 1.3<br>
+      • Row Level Security (RLS) — no other user can read your data<br>
+      • Passwords never stored in plaintext (bcrypt hashing)<br>
+      • Regular automated backups
+    </div>
+
+    <h2>5. Do we share your data?</h2>
+    <p>We never sell your data. We do not share it with third parties for marketing. We use these service providers:</p>
+    <ul>
+      <li><strong>Supabase Inc.</strong> — data storage and authentication (data stored in EU)</li>
+      <li><strong>Vercel Inc.</strong> — web hosting (no personal data stored at Vercel)</li>
+      <li><strong>Anthropic PBC</strong> — AI features (description text sent for matching, not retained)</li>
+    </ul>
+
+    <h2>6. Your rights</h2>
+    <ul>
+      <li><strong>Right of access</strong> — request a copy of your data</li>
+      <li><strong>Right to rectification</strong> — correct inaccurate data</li>
+      <li><strong>Right to erasure</strong> — delete your account via Settings → My Account</li>
+      <li><strong>Right to data portability</strong> — export your data in JSON format</li>
+      <li><strong>Right to object</strong> — to processing based on legitimate interest</li>
+      <li><strong>Right to lodge a complaint</strong> — with your national supervisory authority</li>
+    </ul>
+    <p><strong>Contact us at <a href="mailto:privacy@sparybudget.com">privacy@sparybudget.com</a> to exercise your rights. We respond within 30 days.</strong></p>
+
+    <h2>7. Cookies</h2>
+    <p>Sparybudget does not use tracking cookies. We use a technical session cookie to keep you logged in — this does not require consent.</p>
+
+    <h2>8. Children</h2>
+    <p>Sparybudget requires users to be at least 16 years old. We do not knowingly collect data from children under 16.</p>
+
+    <h2>9. Changes</h2>
+    <p>We will notify you of material changes by email at least 30 days in advance.</p>
+
+    <h2>10. Contact</h2>
+    <p>Sparybudget · <a href="mailto:privacy@sparybudget.com">privacy@sparybudget.com</a> · <a href="https://sparybudget.com">sparybudget.com</a></p>
+  </div>
+</div>
+
+<footer>
+  <a href="/">Sparybudget</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a>
+</footer>
+
+<script>
+  const d = new Date().toLocaleDateString;
+  const now = new Date();
+  const sv = now.toLocaleDateString('sv-SE');
+  const en = now.toLocaleDateString('en-GB');
+  document.querySelectorAll('.date-sv').forEach(e => e.textContent = sv);
+  document.querySelectorAll('.date-en').forEach(e => e.textContent = en);
+  document.getElementById('date').textContent = sv;
+
+  function showLang(lang, el) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById(lang).classList.add('active');
+    document.querySelectorAll('.lang-switch a').forEach(a => a.classList.remove('active'));
+    el.classList.add('active');
+    document.documentElement.lang = lang;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Användarvillkor / Terms of Service — Sparybudget</title>
+  <style>
+    :root { --dark:#1A2F52; --mid:#4A80C8; --light:#DDEAF8; --text:#222; --muted:#5A6A7A; }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#F0F6FF;color:var(--text);line-height:1.7;}
+    header{background:var(--dark);padding:20px 24px;display:flex;align-items:center;gap:12px;}
+    header a{text-decoration:none;display:flex;align-items:center;gap:10px;}
+    .logo{font-size:24px;font-weight:800;color:#fff;letter-spacing:-0.5px;}
+    .lang-switch{margin-left:auto;display:flex;gap:8px;}
+    .lang-switch a{padding:5px 12px;border-radius:20px;border:1.5px solid #8AAAD8;color:#C8DCF4;font-size:12px;font-weight:600;text-decoration:none;}
+    .lang-switch a.active{background:var(--mid);border-color:var(--mid);color:#fff;}
+    .container{max-width:720px;margin:0 auto;padding:40px 24px 80px;}
+    .version-badge{display:inline-block;background:var(--light);color:var(--dark);font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;margin-bottom:24px;}
+    h1{font-size:2rem;font-weight:800;color:var(--dark);margin-bottom:8px;}
+    h2{font-size:1.2rem;font-weight:700;color:var(--mid);margin:32px 0 10px;}
+    p{margin-bottom:12px;}
+    ul{padding-left:20px;margin-bottom:12px;}
+    li{margin-bottom:6px;}
+    .warn-box{background:#FFF8E0;border-left:4px solid #E0A000;border-radius:0 12px 12px 0;padding:14px 18px;margin:16px 0;font-size:0.9rem;}
+    .info-box{background:var(--light);border-left:4px solid var(--mid);border-radius:0 12px 12px 0;padding:14px 18px;margin:16px 0;font-size:0.9rem;}
+    .section{display:none;}
+    .section.active{display:block;}
+    footer{text-align:center;padding:24px;font-size:13px;color:var(--muted);border-top:1px solid #C8D8EC;margin-top:40px;}
+    footer a{color:var(--mid);text-decoration:none;}
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="/">
+    <span style="font-size:22px">💰</span>
+    <div><div class="logo">Sparybudget</div></div>
+  </a>
+  <div class="lang-switch">
+    <a href="#" class="active" onclick="showLang('sv',this)">🇸🇪 SV</a>
+    <a href="#" onclick="showLang('en',this)">🇬🇧 EN</a>
+  </div>
+</header>
+
+<div class="container">
+  <div class="version-badge">Version 1.0 · <span id="date"></span></div>
+
+  <!-- SWEDISH -->
+  <div class="section active" id="sv">
+    <h1>Användarvillkor</h1>
+    <p style="color:var(--muted);font-size:0.9rem">Senast uppdaterade: <span class="date-sv"></span></p>
+    <p>Dessa villkor gäller för din användning av Sparybudget-appen och -tjänsten. Genom att skapa ett konto godkänner du dessa villkor.</p>
+
+    <h2>1. Om tjänsten</h2>
+    <p>Sparybudget är ett personligt budgetverktyg som hjälper dig planera och följa upp din privatekonomi.</p>
+    <div class="warn-box">
+      ⚠️ <strong>Viktig ansvarsfriskrivning:</strong><br>
+      Sparybudget är ett budgetverktyg — inte en finansiell rådgivningstjänst.<br>
+      Innehållet utgör inte finansiell, juridisk eller skattemässig rådgivning.<br>
+      Du ansvarar alltid själv för dina ekonomiska beslut.
+    </div>
+
+    <h2>2. Konto och åtkomst</h2>
+    <ul>
+      <li>Du måste vara minst <strong>16 år</strong> för att använda Sparybudget</li>
+      <li>Du ansvarar för att hålla dina inloggningsuppgifter hemliga</li>
+      <li>Du får inte dela ditt konto med andra</li>
+      <li>Du ansvarar för all aktivitet som sker från ditt konto</li>
+      <li>Kontakta oss omgående på <a href="mailto:privacy@sparybudget.com">privacy@sparybudget.com</a> vid misstänkt obehörig åtkomst</li>
+    </ul>
+
+    <h2>3. Tillåten användning</h2>
+    <p>Du får använda Sparybudget för lagliga, personliga ändamål. Du får inte:</p>
+    <ul>
+      <li>Använda tjänsten för kommersiella ändamål utan skriftligt tillstånd</li>
+      <li>Försöka bryta dig in i eller manipulera tjänstens tekniska system</li>
+      <li>Använda automatiserade verktyg (bots, scrapers) mot tjänsten</li>
+      <li>Ladda upp skadlig kod eller innehåll som kränker tredje parts rättigheter</li>
+      <li>Försöka få tillgång till andra användares data</li>
+    </ul>
+
+    <h2>4. Din data</h2>
+    <ul>
+      <li>Du <strong>äger</strong> all data du matar in i Sparybudget</li>
+      <li>Du ger oss en begränsad licens att lagra och behandla din data för att tillhandahålla tjänsten</li>
+      <li>Vi säljer inte och delar inte din data med tredje part för marknadsföring</li>
+      <li>Se vår <a href="/privacy">integritetspolicy</a> för fullständig information</li>
+    </ul>
+
+    <h2>5. Tillgänglighet och ändringar</h2>
+    <p>Vi förbehåller oss rätten att:</p>
+    <ul>
+      <li>Tillfälligt avbryta tjänsten för underhåll (med förvarning när möjligt)</li>
+      <li>Ändra eller ta bort funktioner (med 30 dagars varsel för väsentliga ändringar)</li>
+      <li>Upphöra med tjänsten med 90 dagars varsel</li>
+    </ul>
+
+    <h2>6. Ansvarsbegränsning</h2>
+    <p>I den utsträckning lagen tillåter ansvarar Sparybudget inte för:</p>
+    <ul>
+      <li>Indirekta skador eller följdskador</li>
+      <li>Ekonomiska beslut du fattar baserat på information i appen</li>
+      <li>Förlust av data orsakad av omständigheter utanför vår kontroll</li>
+    </ul>
+    <p>Sparybudget har alltid ett begränsat ansvar som aldrig överstiger vad du betalat under de senaste 12 månaderna.</p>
+
+    <h2>7. Immateriella rättigheter</h2>
+    <p>Sparybudget och dess innehåll tillhör Sparybudget. Du beviljas en begränsad, icke-exklusiv licens att använda tjänsten för personligt bruk.</p>
+
+    <h2>8. Uppsägning</h2>
+    <p>Du kan när som helst radera ditt konto via <strong>Inställningar → Mitt konto</strong>. Vi kan stänga av konton som bryter mot dessa villkor.</p>
+
+    <h2>9. Tillämplig lag och tvister</h2>
+    <p>Dessa villkor regleras av <strong>svensk rätt</strong>. Tvister löses i första hand i dialog. Behörig domstol: Stockholm tingsrätt.</p>
+    <p>Som konsument i EU kan du även vända dig till: <a href="https://ec.europa.eu/consumers/odr" target="_blank">ec.europa.eu/consumers/odr</a></p>
+
+    <h2>10. Kontakt</h2>
+    <p>Sparybudget · <a href="mailto:privacy@sparybudget.com">privacy@sparybudget.com</a> · <a href="https://sparybudget.com">sparybudget.com</a></p>
+    <p>Vi meddelar dig om väsentliga ändringar via e-post minst 30 dagar i förväg.</p>
+  </div>
+
+  <!-- ENGLISH -->
+  <div class="section" id="en">
+    <h1>Terms of Service</h1>
+    <p style="color:var(--muted);font-size:0.9rem">Last updated: <span class="date-en"></span></p>
+    <p>These terms apply to your use of the Sparybudget app and service. By creating an account, you accept these terms.</p>
+
+    <h2>1. About the service</h2>
+    <p>Sparybudget is a personal budgeting tool that helps you plan and track your personal finances.</p>
+    <div class="warn-box">
+      ⚠️ <strong>Important disclaimer:</strong><br>
+      Sparybudget is a budgeting tool — not a financial advisory service.<br>
+      Content does not constitute financial, legal or tax advice.<br>
+      You are always solely responsible for your own financial decisions.
+    </div>
+
+    <h2>2. Account and access</h2>
+    <ul>
+      <li>You must be at least <strong>16 years old</strong> to use Sparybudget</li>
+      <li>You are responsible for keeping your login credentials confidential</li>
+      <li>You may not share your account with others</li>
+      <li>You are responsible for all activity under your account</li>
+      <li>Contact us at <a href="mailto:privacy@sparybudget.com">privacy@sparybudget.com</a> if you suspect unauthorised access</li>
+    </ul>
+
+    <h2>3. Permitted use</h2>
+    <p>You may use Sparybudget for lawful, personal purposes. You must not:</p>
+    <ul>
+      <li>Use the service for commercial purposes without written permission</li>
+      <li>Attempt to breach or manipulate the technical systems</li>
+      <li>Use automated tools (bots, scrapers) against the service</li>
+      <li>Upload malicious code or content infringing third-party rights</li>
+      <li>Attempt to access other users' data</li>
+    </ul>
+
+    <h2>4. Your data</h2>
+    <ul>
+      <li>You <strong>own</strong> all data you enter into Sparybudget</li>
+      <li>You grant us a limited licence to store and process your data to provide the service</li>
+      <li>We do not sell or share your data with third parties for marketing</li>
+      <li>See our <a href="/privacy">Privacy Policy</a> for full information</li>
+    </ul>
+
+    <h2>5. Availability and changes</h2>
+    <ul>
+      <li>Temporarily suspend the service for maintenance (with notice where possible)</li>
+      <li>Modify or remove features (with 30 days' notice for material changes)</li>
+      <li>Discontinue the service with 90 days' notice</li>
+    </ul>
+
+    <h2>6. Limitation of liability</h2>
+    <p>To the extent permitted by law, Sparybudget is not liable for:</p>
+    <ul>
+      <li>Indirect or consequential damages</li>
+      <li>Financial decisions made based on information in the app</li>
+      <li>Loss of data caused by circumstances beyond our control</li>
+    </ul>
+    <p>Sparybudget's liability shall never exceed amounts paid by you in the preceding 12 months.</p>
+
+    <h2>7. Intellectual property</h2>
+    <p>Sparybudget and its content belong to Sparybudget. You are granted a limited, non-exclusive licence for personal use.</p>
+
+    <h2>8. Termination</h2>
+    <p>You may delete your account at any time via <strong>Settings → My Account</strong>. We may suspend accounts that violate these terms.</p>
+
+    <h2>9. Governing law and disputes</h2>
+    <p>These terms are governed by <strong>Swedish law</strong>. Disputes should first be resolved through dialogue. Competent court: Stockholm District Court.</p>
+    <p>As an EU consumer: <a href="https://ec.europa.eu/consumers/odr" target="_blank">ec.europa.eu/consumers/odr</a></p>
+
+    <h2>10. Contact</h2>
+    <p>Sparybudget · <a href="mailto:privacy@sparybudget.com">privacy@sparybudget.com</a> · <a href="https://sparybudget.com">sparybudget.com</a></p>
+    <p>We will notify you of material changes by email at least 30 days in advance.</p>
+  </div>
+</div>
+
+<footer>
+  <a href="/">Sparybudget</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a>
+</footer>
+
+<script>
+  const now = new Date();
+  document.querySelectorAll('.date-sv').forEach(e => e.textContent = now.toLocaleDateString('sv-SE'));
+  document.querySelectorAll('.date-en').forEach(e => e.textContent = now.toLocaleDateString('en-GB'));
+  document.getElementById('date').textContent = now.toLocaleDateString('sv-SE');
+  function showLang(lang, el) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById(lang).classList.add('active');
+    document.querySelectorAll('.lang-switch a').forEach(a => a.classList.remove('active'));
+    el.classList.add('active');
+  }
+</script>
+</body>
+</html>
