@@ -2125,21 +2125,21 @@ function SavingsTab({ goals, setGoals, lang, currency, theme, yearData }) {
             {t.addGoal.replace("+ ","").replace("Nytt ","").replace("New ","")}
           </div>
 
-          <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+          <div style={{ display:"flex", gap:8, marginBottom:10, width:"100%" }}>
             <input type="text" value={newName} onChange={e=>setNewName(e.target.value)}
               placeholder={t.goalName}
-              style={{ flex:2, padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}
+              style={{ flex:"1 1 0%", minWidth:0, width:"100%", boxSizing:"border-box", padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}
             />
-            <input type="number" value={newTarget} onChange={e=>setNewTarget(e.target.value)}
+            <input type="number" inputMode="decimal" value={newTarget} onChange={e=>setNewTarget(e.target.value)}
               placeholder={t.goalTarget}
-              style={{ flex:1, padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}
+              style={{ flex:"0 1 110px", minWidth:0, width:"110px", boxSizing:"border-box", padding:"10px 10px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}
             />
           </div>
 
-          <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-            <input type="number" value={newMonthly} onChange={e=>setNewMonthly(e.target.value)}
+          <div style={{ display:"flex", gap:8, marginBottom:10, width:"100%" }}>
+            <input type="number" inputMode="decimal" value={newMonthly} onChange={e=>setNewMonthly(e.target.value)}
               placeholder={t.goalContribution}
-              style={{ flex:1, padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}
+              style={{ flex:"1 1 0%", minWidth:0, width:"100%", boxSizing:"border-box", padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}
             />
           </div>
 
@@ -2148,13 +2148,13 @@ function SavingsTab({ goals, setGoals, lang, currency, theme, yearData }) {
             <div style={{ fontSize:11, color:theme.accentMuted, marginBottom:7, letterSpacing:0.5 }}>
               {t.goalDeadline.toUpperCase()}
             </div>
-            <div style={{ display:"flex", gap:8 }}>
+            <div style={{ display:"flex", gap:8, width:"100%" }}>
               <select value={newDeadlineMonth} onChange={e=>setNewDeadlineMonth(Number(e.target.value))}
-                style={{ flex:1, padding:"10px 12px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}>
+                style={{ flex:"1 1 0%", minWidth:0, width:"100%", boxSizing:"border-box", padding:"10px 8px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}>
                 {t.fullMonths.map((m,i)=><option key={i} value={i}>{m}</option>)}
               </select>
               <select value={newDeadlineYear} onChange={e=>setNewDeadlineYear(Number(e.target.value))}
-                style={{ flex:1, padding:"10px 12px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}>
+                style={{ flex:"0 1 100px", minWidth:0, width:"100px", boxSizing:"border-box", padding:"10px 8px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}>
                 {years.map(y=><option key={y} value={y}>{y}</option>)}
               </select>
             </div>
