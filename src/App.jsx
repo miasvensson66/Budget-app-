@@ -107,7 +107,7 @@ const T = {
     incomeMinusBudget: "Income − Budget",
     defaultCategories: ["Accommodation","Subscriptions & Contracts","Car & Transport"],
     importBank: "Import bank statement",
-    importTab: "Import",
+    importTab: "Bank statement",
     importDrop: "Drop Swedbank CSV here or tap to browse",
     importSupported: "Supports Swedbank CSV export",
     importHowTo: "How to export from Swedbank",
@@ -232,7 +232,7 @@ const T = {
     incomeMinusBudget: "Inkomst − Budgeterat",
     defaultCategories: ["Boende","Prenumerationer & Avtal","Bil & Transport"],
     importBank: "Importera kontoutdrag",
-    importTab: "Importera",
+    importTab: "Kontoutdrag",
     importDrop: "Släpp Swedbank CSV här eller tryck för att välja fil",
     importSupported: "Stödjer Swedbank CSV-export",
     importHowTo: "Hur exporterar jag från Swedbank?",
@@ -466,19 +466,28 @@ function useSupabaseUserData(userId, isDemo) {
     return () => { cancelled = true; clearTimeout(timeout); };
   }, [userId, isDemo]);
 
-  // Debounced save
-  const save = useCallback((newAllYears, newGoals, newCats) => {
+  // Refs to avoid stale-closure bugs when multiple fields change in quick succession
+  const allYearsRef   = useRef(allYears);
+  const goalsRef       = useRef(goals);
+  const categoriesRef  = useRef(categories);
+  useEffect(() => { allYearsRef.current = allYears; }, [allYears]);
+  useEffect(() => { goalsRef.current = goals; }, [goals]);
+  useEffect(() => { categoriesRef.current = categories; }, [categories]);
+
+  // Debounced save — always saves the LATEST value of all three fields via refs
+  const save = useCallback(() => {
     if (isDemo || !userId) return;
     clearTimeout(saveTimer.current);
     setSaving(true);
     saveTimer.current = setTimeout(async () => {
-      await supabase.from("user_data").upsert({
+      const { error: saveError } = await supabase.from("user_data").upsert({
         user_id:    userId,
-        year_data:  newAllYears,
-        goals:      newGoals,
-        categories: newCats,
+        year_data:  allYearsRef.current,
+        goals:      goalsRef.current,
+        categories: categoriesRef.current,
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
+      if (saveError) console.error("Save failed:", saveError);
       setSaving(false);
     }, 800);
   }, [userId, isDemo]);
@@ -486,24 +495,50 @@ function useSupabaseUserData(userId, isDemo) {
   function setAllYears(fn) {
     setAllYearsState(prev => {
       const next = typeof fn === "function" ? fn(prev) : fn;
-      save(next, goals, categories);
+      allYearsRef.current = next;
+      save();
       return next;
     });
   }
   function setGoals(fn) {
     setGoalsState(prev => {
       const next = typeof fn === "function" ? fn(prev) : fn;
-      save(allYears, next, categories);
+      goalsRef.current = next;
+      save();
       return next;
     });
   }
   function setCategories(fn) {
     setCategoriesState(prev => {
       const next = typeof fn === "function" ? fn(prev) : fn;
-      save(allYears, goals, next);
+      categoriesRef.current = next;
+      save();
       return next;
     });
   }
+
+  // Flush any pending save immediately if the user closes/reloads the tab
+  useEffect(() => {
+    function flushOnUnload() {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        // Fire-and-forget synchronous-ish save attempt
+        supabase.from("user_data").upsert({
+          user_id:    userId,
+          year_data:  allYearsRef.current,
+          goals:      goalsRef.current,
+          categories: categoriesRef.current,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+      }
+    }
+    window.addEventListener("beforeunload", flushOnUnload);
+    window.addEventListener("pagehide", flushOnUnload);
+    return () => {
+      window.removeEventListener("beforeunload", flushOnUnload);
+      window.removeEventListener("pagehide", flushOnUnload);
+    };
+  }, [userId]);
 
   return { allYears, setAllYears, goals, setGoals, categories, setCategories, loading, saving, error };
 }
@@ -1335,6 +1370,20 @@ function ImportTab({ lang, currency, theme, yearData, setYearData, categories, a
 
   return (
     <div>
+      {/* Page heading */}
+      {step === "upload" && (
+        <div style={{ marginBottom:16 }}>
+          <div style={{ fontWeight:800, fontSize:19, color:theme.accentDeep, marginBottom:4 }}>
+            📄 {t.importBank}
+          </div>
+          <div style={{ fontSize:13, color:theme.accentMuted, lineHeight:1.5 }}>
+            {lang==="sv"
+              ? "Ladda upp ett kontoutdrag så matchar vi automatiskt dina utgifter mot rätt hink."
+              : "Upload a bank statement and we'll automatically match your expenses to the right bucket."}
+          </div>
+        </div>
+      )}
+
       {/* Upload step */}
       {(step === "upload") && (
         <>
@@ -2881,41 +2930,57 @@ function AppInner({ user, onLogout }) {
         <div className="tryvi-inner">
 
         {/* Header */}
-        <div style={{ padding:"52px 20px 22px", background:theme.header, borderRadius:"0 0 32px 32px", marginBottom:18, boxShadow:`0 8px 40px ${theme.accentDeep}60` }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-            <div>
-              <div style={{ fontWeight:800, fontSize:30, color:"#fff", letterSpacing:"-1px" }}>{t.appTitle}</div>
-              <div style={{ fontSize:12, color:theme.accentMuted, marginTop:2, display:"flex", alignItems:"center", gap:6 }}>
-                <button onClick={()=>setShowProfile(true)} style={{
-                  background:"none", border:"none", cursor:"pointer",
-                  color:theme.accentMuted, fontSize:12, padding:0, fontWeight:600,
-                  textDecoration:"underline", textDecorationStyle:"dotted",
-                }}>
-                  👤 {user.name}{user.isDemo ? " (Demo)" : ""}
-                </button>
-                {saving && <span style={{ fontSize:10, color:theme.accentMuted }}>· {lang==="sv"?"sparar…":"saving…"}</span>}
-                {!saving && !user.isDemo && <span style={{ fontSize:10, color:"#80D880" }}>✓</span>}
-              </div>
+        <div style={{ padding:"48px 20px 22px", background:theme.header, borderRadius:"0 0 32px 32px", marginBottom:18, boxShadow:`0 8px 40px ${theme.accentDeep}60` }}>
+
+          {/* Row 1: App name, full width, own line */}
+          <div style={{ fontWeight:800, fontSize:28, color:"#fff", letterSpacing:"-1px", lineHeight:1.15, marginBottom:10 }}>
+            {t.appTitle}
+          </div>
+
+          {/* Row 2: user + action icons */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ fontSize:12, color:theme.accentMuted, display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
+              <button onClick={()=>setShowProfile(true)} style={{
+                background:"none", border:"none", cursor:"pointer",
+                color:theme.accentMuted, fontSize:12, padding:0, fontWeight:600,
+                textDecoration:"underline", textDecorationStyle:"dotted",
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+              }}>
+                👤 {user.name}{user.isDemo ? " (Demo)" : ""}
+              </button>
+              {saving && <span style={{ fontSize:10, color:theme.accentMuted, flexShrink:0 }}>· {lang==="sv"?"sparar…":"saving…"}</span>}
+              {!saving && !user.isDemo && <span style={{ fontSize:10, color:"#80D880", flexShrink:0 }}>✓</span>}
             </div>
-            <div style={{ display:"flex", gap:8 }}>
-              <button onClick={()=>setLang(l=>l==="en"?"sv":"en")} style={{
-                padding:"7px 14px", borderRadius:20, border:`1.5px solid ${theme.accentMuted}`,
-                background:"transparent", color:theme.accentText, cursor:"pointer", fontSize:12, fontWeight:600,
-              }}>{t.switchLang}</button>
+            <div style={{ display:"flex", gap:8, flexShrink:0 }}>
               <button onClick={()=>setShowSettings(s=>!s)} style={{
-                padding:"7px 12px", borderRadius:20, border:`1.5px solid ${theme.headerBorder}`,
+                width:34, height:34, borderRadius:17, border:`1.5px solid ${theme.headerBorder}`,
                 background: showSettings ? theme.accentDeep+"80" : "transparent",
                 color:theme.accentText, cursor:"pointer", fontSize:16,
+                display:"flex", alignItems:"center", justifyContent:"center",
               }}>⚙</button>
               <button onClick={onLogout} title="Log out" style={{
-                padding:"7px 12px", borderRadius:20, border:`1.5px solid ${theme.headerBorder}`,
+                width:34, height:34, borderRadius:17, border:`1.5px solid ${theme.headerBorder}`,
                 background:"transparent", color:theme.accentText, cursor:"pointer", fontSize:14,
+                display:"flex", alignItems:"center", justifyContent:"center",
               }}>⏏</button>
             </div>
           </div>
 
           {showSettings && (
             <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:18, padding:16, marginTop:14, backdropFilter:"blur(10px)" }}>
+              {/* Language */}
+              <div style={{ fontSize:11, color:theme.accentMuted, marginBottom:8, letterSpacing:1 }}>{lang==="sv"?"SPRÅK":"LANGUAGE"}</div>
+              <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+                {[["sv","Svenska"],["en","English"]].map(([code,label])=>(
+                  <button key={code} onClick={()=>setLang(code)} style={{
+                    padding:"6px 16px", borderRadius:14,
+                    background: lang===code ? theme.accent : "transparent",
+                    border: `1px solid ${lang===code ? theme.accent : theme.headerBorder}`,
+                    color: lang===code ? "#fff" : theme.accentText,
+                    cursor:"pointer", fontSize:13, fontWeight:lang===code?700:400,
+                  }}>{label}</button>
+                ))}
+              </div>
               {/* Currency */}
               <div style={{ fontSize:11, color:theme.accentMuted, marginBottom:8, letterSpacing:1 }}>{t.currency.toUpperCase()}</div>
               <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
@@ -2954,7 +3019,7 @@ function AppInner({ user, onLogout }) {
 
           {/* Tabs */}
           <div style={{ display:"flex", gap:6, marginTop:18 }}>
-            {["monthly","savings","import","overview"].map(tab=>(
+            {["monthly","savings","overview","import"].map(tab=>(
               <button key={tab} onClick={()=>setActiveTab(tab)} style={{
                 flex:1, padding:"9px 4px", borderRadius:16,
                 background: activeTab===tab ? theme.accent : "transparent",
@@ -2962,11 +3027,12 @@ function AppInner({ user, onLogout }) {
                 color: activeTab===tab ? "#fff" : theme.accentText,
                 cursor:"pointer", fontSize:11, fontWeight:activeTab===tab?700:500,
                 boxShadow: activeTab===tab ? `0 4px 16px ${theme.accent}55` : "none",
+                display:"flex", alignItems:"center", justifyContent:"center", gap:4,
               }}>
                 {tab==="monthly" ? t.monthly
                  : tab==="savings" ? t.savings
-                 : tab==="import" ? "🏦"
-                 : t.overview}
+                 : tab==="overview" ? t.overview
+                 : <>🏦 <span style={{whiteSpace:"nowrap"}}>{t.importTab}</span></>}
               </button>
             ))}
           </div>
