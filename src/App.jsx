@@ -29,7 +29,7 @@ function useViewport() {
 // ─── Translations ─────────────────────────────────────────────────────────────
 const T = {
   en: {
-    appTitle: "Spary", appSubtitle: "Your trusted budget companion",
+    appTitle: "Sparybudget", appSubtitle: "Your trusted budget companion",
     monthly: "Monthly Budget", overview: "Overview",
     income: "Monthly Income", incomePlaceholder: "e.g. 35000",
     addBucket: "+ Add Bucket", bucketName: "Name (e.g. Rent)",
@@ -130,9 +130,29 @@ const T = {
     importError: "Could not read file. Make sure it is a Swedbank CSV export.",
     importNone: "No transactions to import",
     importAdded: (n) => `✓ ${n} transactions added`,
+    newYear: "New year",
+    newYearTitle: (y) => `Set up ${y}`,
+    newYearCopy: "Copy budget from previous year",
+    newYearEmpty: "Start with empty budget",
+    newYearAnalysis: "AI analysis of previous year",
+    newYearAnalyzing: "Analysing your budget…",
+    newYearSuggestion: "Suggested adjustment",
+    newYearReason: "Reason",
+    newYearOverBudget: "Over budget",
+    newYearUnderBudget: "Under budget",
+    newYearApply: "Create year",
+    newYearSkip: "Skip adjustments",
+    newYearBucketNew: "New budget",
+    switchYear: "Year",
+    consentTerms: "I have read and accept the",
+    consentAnd: "and the",
+    consentTermsLink: "Terms of Service",
+    consentPrivacyLink: "Privacy Policy",
+    consentAge: "I confirm that I am at least 16 years old",
+    consentRequired: "You must accept the terms and confirm your age to create an account",
   },
   sv: {
-    appTitle: "Spary", appSubtitle: "Din trygga budgetkompis",
+    appTitle: "Sparybudget", appSubtitle: "Din trygga budgetkompis",
     monthly: "Månadsbudget", overview: "Översikt",
     income: "Månadsinkomst", incomePlaceholder: "t.ex. 35000",
     addBucket: "+ Lägg till hink", bucketName: "Namn (t.ex. Hyra)",
@@ -235,6 +255,26 @@ const T = {
     importError: "Kunde inte läsa filen. Kontrollera att det är en Swedbank CSV-export.",
     importNone: "Inga transaktioner att importera",
     importAdded: (n) => `✓ ${n} transaktioner tillagda`,
+    newYear: "Nytt år",
+    newYearTitle: (y) => `Sätt upp ${y}`,
+    newYearCopy: "Kopiera budget från föregående år",
+    newYearEmpty: "Börja med tom budget",
+    newYearAnalysis: "AI-analys av föregående år",
+    newYearAnalyzing: "Analyserar din budget…",
+    newYearSuggestion: "Föreslagen justering",
+    newYearReason: "Anledning",
+    newYearOverBudget: "Överskred budget",
+    newYearUnderBudget: "Under budget",
+    newYearApply: "Skapa år",
+    newYearSkip: "Hoppa över justeringar",
+    newYearBucketNew: "Ny budget",
+    switchYear: "År",
+    consentTerms: "Jag har läst och godkänner",
+    consentAnd: "och",
+    consentTermsLink: "användarvillkoren",
+    consentPrivacyLink: "integritetspolicyn",
+    consentAge: "Jag bekräftar att jag är minst 16 år",
+    consentRequired: "Du måste godkänna villkoren och bekräfta din ålder för att skapa konto",
   }
 };
 
@@ -356,10 +396,15 @@ function useLS(key, init) {
 }
 
 // ─── Supabase data hook ───────────────────────────────────────────────────────
-// Loads a user's row from `user_data` table and keeps it synced.
-// Each user has one row: { user_id, year_data, goals, categories }
+const CURRENT_YEAR = new Date().getFullYear();
+
+function emptyYear() {
+  return Array.from({length:12}, () => ({ incomeSources:[], buckets:[] }));
+}
+
 function useSupabaseUserData(userId, isDemo) {
-  const defaultYearData = Array.from({length:12}, () => ({ incomeSources:[], buckets:[] }));
+  // allYears: { [year: number]: monthData[] }
+  const defaultAllYears = { [CURRENT_YEAR]: emptyYear() };
   const defaultGoals = [];
   const defaultCats  = [
     { id:"cat_1", name:"Boende" },
@@ -367,7 +412,10 @@ function useSupabaseUserData(userId, isDemo) {
     { id:"cat_3", name:"Bil & Transport" },
   ];
 
-  const [yearData,   setYearDataState]   = useState(isDemo ? makeSampleData("sv") : defaultYearData);
+  // Demo uses allYears format too
+  const demoData = { [CURRENT_YEAR]: makeSampleData("sv") };
+
+  const [allYears,   setAllYearsState]   = useState(isDemo ? demoData : defaultAllYears);
   const [goals,      setGoalsState]      = useState(defaultGoals);
   const [categories, setCategoriesState] = useState(defaultCats);
   const [loading,    setLoading]         = useState(!isDemo);
@@ -380,18 +428,13 @@ function useSupabaseUserData(userId, isDemo) {
     if (isDemo || !userId) { setLoading(false); return; }
     let cancelled = false;
 
-    // Safety timeout — never get stuck on blue screen
     const timeout = setTimeout(() => {
-      if (!cancelled) {
-        console.warn("Supabase load timeout — showing empty app");
-        setLoading(false);
-      }
+      if (!cancelled) { console.warn("Supabase load timeout"); setLoading(false); }
     }, 8000);
 
     (async () => {
       try {
-        setLoading(true);
-        setError(null);
+        setLoading(true); setError(null);
         const { data, error: sbError } = await supabase
           .from("user_data")
           .select("year_data, goals, categories")
@@ -399,18 +442,20 @@ function useSupabaseUserData(userId, isDemo) {
           .maybeSingle();
 
         if (cancelled) return;
-
-        if (sbError) {
-          console.error("Supabase load error:", sbError);
-          setError(sbError.message);
-        } else if (data) {
-          if (data.year_data)   setYearDataState(data.year_data);
+        if (sbError) { setError(sbError.message); }
+        else if (data) {
+          if (data.year_data) {
+            // Migrate: old flat array → new multi-year object
+            if (Array.isArray(data.year_data)) {
+              setAllYearsState({ [CURRENT_YEAR]: data.year_data });
+            } else {
+              setAllYearsState(data.year_data);
+            }
+          }
           if (data.goals)       setGoalsState(data.goals);
           if (data.categories)  setCategoriesState(data.categories);
         }
-        // No data = new user, defaults are already set — that's fine
       } catch (e) {
-        console.error("Unexpected error loading data:", e);
         if (!cancelled) setError(e.message);
       } finally {
         clearTimeout(timeout);
@@ -421,15 +466,15 @@ function useSupabaseUserData(userId, isDemo) {
     return () => { cancelled = true; clearTimeout(timeout); };
   }, [userId, isDemo]);
 
-  // Debounced save to Supabase
-  const save = useCallback((newYearData, newGoals, newCats) => {
+  // Debounced save
+  const save = useCallback((newAllYears, newGoals, newCats) => {
     if (isDemo || !userId) return;
     clearTimeout(saveTimer.current);
     setSaving(true);
     saveTimer.current = setTimeout(async () => {
       await supabase.from("user_data").upsert({
         user_id:    userId,
-        year_data:  newYearData,
+        year_data:  newAllYears,
         goals:      newGoals,
         categories: newCats,
         updated_at: new Date().toISOString(),
@@ -438,8 +483,8 @@ function useSupabaseUserData(userId, isDemo) {
     }, 800);
   }, [userId, isDemo]);
 
-  function setYearData(fn) {
-    setYearDataState(prev => {
+  function setAllYears(fn) {
+    setAllYearsState(prev => {
       const next = typeof fn === "function" ? fn(prev) : fn;
       save(next, goals, categories);
       return next;
@@ -448,19 +493,19 @@ function useSupabaseUserData(userId, isDemo) {
   function setGoals(fn) {
     setGoalsState(prev => {
       const next = typeof fn === "function" ? fn(prev) : fn;
-      save(yearData, next, categories);
+      save(allYears, next, categories);
       return next;
     });
   }
   function setCategories(fn) {
     setCategoriesState(prev => {
       const next = typeof fn === "function" ? fn(prev) : fn;
-      save(yearData, goals, next);
+      save(allYears, goals, next);
       return next;
     });
   }
 
-  return { yearData, setYearData, goals, setGoals, categories, setCategories, loading, saving, error };
+  return { allYears, setAllYears, goals, setGoals, categories, setCategories, loading, saving, error };
 }
 
 // ── Sample data for demo/test users ──────────────────────────────────────────
@@ -1165,13 +1210,14 @@ Example: {"0": "bucket-id-123", "1": null, "2": "bucket-id-456"}`;
 }
 
 // ─── Import Tab ───────────────────────────────────────────────────────────────
-function ImportTab({ lang, currency, theme, yearData, setYearData, categories }) {
+function ImportTab({ lang, currency, theme, yearData, setYearData, categories, allYears, setAllYears, selectedYear }) {
   const t = T[lang];
-  const [step, setStep]             = useState("upload"); // upload | parsing | review | done
-  const [transactions, setTxns]     = useState([]);
-  const [error, setError]           = useState("");
-  const [showHowTo, setShowHowTo]   = useState(false);
-  const [doneCount, setDoneCount]   = useState(0);
+  const currentYear = selectedYear || CURRENT_YEAR;
+  const [step, setStep]               = useState("upload");
+  const [transactions, setTxns]       = useState([]);
+  const [error, setError]             = useState("");
+  const [showHowTo, setShowHowTo]     = useState(false);
+  const [doneCount, setDoneCount]     = useState(0);
   const fileRef = useRef(null);
 
   // Collect all buckets across all months for matching
@@ -1212,20 +1258,53 @@ function ImportTab({ lang, currency, theme, yearData, setYearData, categories })
     const approved = transactions.filter(t => t.status === "approved" && t.bucketId);
     if (!approved.length) { setStep("done"); setDoneCount(0); return; }
 
+    const currentYear = new Date().getFullYear();
+
     setYearData(prev => {
+      // yearData is indexed as flat 12-month array for current year.
+      // For multi-year support we extend to a map: { [YYYY-MM]: monthData }
+      // But to keep backward compatibility we keep the array for current year
+      // and store extra years in yearDataByYear (handled separately below).
       const next = prev.map((m, mi) => {
-        const monthTxns = approved.filter(t => t.month === mi);
+        // Only match transactions that belong to current year AND this month index
+        const monthTxns = approved.filter(t =>
+          t.month === mi && t.year === currentYear
+        );
         if (!monthTxns.length) return m;
         return {
           ...m,
           buckets: m.buckets.map(b => {
-            const spent = monthTxns.filter(t => t.bucketId === b.id).reduce((s,t) => s + t.amount, 0);
+            const spent = monthTxns
+              .filter(t => t.bucketId === b.id)
+              .reduce((s, t) => s + t.amount, 0);
             return spent > 0 ? { ...b, spent: b.spent + spent } : b;
           })
         };
       });
       return next;
     });
+
+    // Handle transactions from OTHER years
+    const otherYearTxns = approved.filter(t => t.year !== currentYear);
+    if (otherYearTxns.length > 0 && setAllYears) {
+      setAllYears(prev => {
+        const next = { ...prev };
+        otherYearTxns.forEach(txn => {
+          if (!next[txn.year]) next[txn.year] = emptyYear();
+          next[txn.year] = next[txn.year].map((m, mi) => {
+            if (mi !== txn.month) return m;
+            return {
+              ...m,
+              buckets: m.buckets.map(b => {
+                if (b.id !== txn.bucketId) return b;
+                return { ...b, spent: (b.spent||0) + txn.amount };
+              })
+            };
+          });
+        });
+        return next;
+      });
+    }
 
     setDoneCount(approved.length);
     setStep("done");
@@ -1235,10 +1314,10 @@ function ImportTab({ lang, currency, theme, yearData, setYearData, categories })
     setStep("upload"); setTxns([]); setError(""); setDoneCount(0);
   }
 
-  // Group transactions by month for display
+  // Group transactions by year+month for display
   const byMonth = {};
   transactions.forEach(t => {
-    const key = `${t.year}-${t.month}`;
+    const key = `${t.year}-${String(t.month).padStart(2,"0")}`;
     if (!byMonth[key]) byMonth[key] = [];
     byMonth[key].push(t);
   });
@@ -1246,6 +1325,13 @@ function ImportTab({ lang, currency, theme, yearData, setYearData, categories })
   const totalAmount = transactions.filter(t=>t.status!=="skipped").reduce((s,t)=>s+t.amount,0);
   const pendingCount = transactions.filter(t=>t.status==="pending").length;
   const approvedCount = transactions.filter(t=>t.status==="approved").length;
+
+  // Detect transactions from years other than current
+  const otherYears = [...new Set(
+    transactions
+      .filter(t => t.year !== currentYear)
+      .map(t => t.year)
+  )].sort();
 
   return (
     <div>
@@ -1326,15 +1412,27 @@ function ImportTab({ lang, currency, theme, yearData, setYearData, categories })
           {/* Summary bar */}
           <div style={{
             background:theme.header, borderRadius:16, padding:"14px 16px", marginBottom:14,
-            display:"flex", justifyContent:"space-between", alignItems:"center",
           }}>
-            <div>
-              <div style={{ fontSize:11, color:theme.accentMuted, letterSpacing:1 }}>{t.importReview.toUpperCase()}</div>
-              <div style={{ fontSize:13, color:"#fff", marginTop:2 }}>
-                {t.importCount(transactions.length)} · {approvedCount} {lang==="sv"?"godkända":"approved"}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: otherYears.length ? 10 : 0 }}>
+              <div>
+                <div style={{ fontSize:11, color:theme.accentMuted, letterSpacing:1 }}>{t.importReview.toUpperCase()}</div>
+                <div style={{ fontSize:13, color:"#fff", marginTop:2 }}>
+                  {t.importCount(transactions.length)} · {approvedCount} {lang==="sv"?"godkända":"approved"}
+                </div>
               </div>
+              <div style={{ fontWeight:800, fontSize:18, color:"#fff" }}>{fmt(totalAmount, currency)}</div>
             </div>
-            <div style={{ fontWeight:800, fontSize:18, color:"#fff" }}>{fmt(totalAmount, currency)}</div>
+
+            {/* Multi-year warning */}
+            {otherYears.length > 0 && (
+              <div style={{ background:"rgba(255,200,100,0.15)", borderRadius:10, padding:"8px 12px", border:"1px solid rgba(255,200,100,0.3)" }}>
+                <div style={{ fontSize:11, color:"#FFD080", fontWeight:600 }}>
+                  ⚠️ {lang==="sv"
+                    ? `Filen innehåller transaktioner från ${otherYears.join(", ")}. Dessa sparas separat och visas inte i årets budget.`
+                    : `File contains transactions from ${otherYears.join(", ")}. These are saved separately and won't affect the current year's budget.`}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Approve all + Confirm buttons */}
@@ -1352,14 +1450,23 @@ function ImportTab({ lang, currency, theme, yearData, setYearData, categories })
             }}>💾 {t.importApprove} ({approvedCount})</button>
           </div>
 
-          {/* Transaction groups by month */}
+          {/* Transaction groups by year+month */}
           {Object.entries(byMonth).sort(([a],[b])=>a.localeCompare(b)).map(([key, txns]) => {
-            const [year, month] = key.split("-").map(Number);
+            const [year, monthStr] = key.split("-");
+            const month = parseInt(monthStr);
+            const isOtherYear = parseInt(year) !== currentYear;
             const monthName = `${t.fullMonths[month]} ${year}`;
             return (
               <div key={key} style={{ marginBottom:16 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:theme.accentMuted, letterSpacing:1, marginBottom:8 }}>
-                  {monthName.toUpperCase()}
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:theme.accentMuted, letterSpacing:1 }}>
+                    {monthName.toUpperCase()}
+                  </div>
+                  {isOtherYear && (
+                    <span style={{ fontSize:10, padding:"2px 8px", borderRadius:10, background:"#FFF0C0", color:"#806000", fontWeight:600, border:"1px solid #F0D060" }}>
+                      {lang==="sv"?"Annat år":"Other year"}
+                    </span>
+                  )}
                 </div>
                 {txns.map(txn => {
                   const bucket = allBuckets.find(b => b.id === txn.bucketId);
@@ -1457,6 +1564,261 @@ function ImportTab({ lang, currency, theme, yearData, setYearData, categories })
         </div>
       )}
     </div>
+  );
+}
+
+// ─── New Year Wizard ──────────────────────────────────────────────────────────
+function NewYearWizard({ newYear, prevYear, prevYearData, lang, currency, theme, onClose, onCreate }) {
+  const t = T[lang];
+  const [step, setStep]           = useState("choose"); // choose | analyzing | review | done
+  const [mode, setMode]           = useState(null);     // "copy" | "empty"
+  const [suggestions, setSuggestions] = useState([]);
+  const [bucketBudgets, setBucketBudgets] = useState({});
+
+  // Collect all unique buckets from prev year with avg budget and total spent
+  const prevBuckets = (() => {
+    const map = {};
+    prevYearData.forEach(m => {
+      m.buckets.forEach(b => {
+        if (!map[b.name]) map[b.name] = { ...b, totalSpent:0, months:0, avgBudget:0 };
+        map[b.name].totalSpent += b.spent;
+        map[b.name].months += b.budget > 0 ? 1 : 0;
+        map[b.name].avgBudget = b.budget; // use last seen budget
+      });
+    });
+    return Object.values(map);
+  })();
+
+  async function analyzeWithAI() {
+    setStep("analyzing");
+    const bucketSummary = prevBuckets.map(b => {
+      const monthsOver = prevYearData.filter(m => {
+        const mb = m.buckets.find(x => x.name === b.name);
+        return mb && mb.spent > mb.budget;
+      }).length;
+      const totalBudget = prevYearData.reduce((s,m) => {
+        const mb = m.buckets.find(x => x.name === b.name);
+        return s + (mb?.budget || 0);
+      }, 0);
+      return `${b.name}: budget ${fmt(b.avgBudget, currency)}/mån, spenderat ${fmt(b.totalSpent/12, currency)}/mån i snitt, överskred ${monthsOver}/12 månader`;
+    }).join("\n");
+
+    const prompt = lang === "sv"
+      ? `Du är en budgetrådgivare. Analysera följande budgetdata från ${prevYear} och föreslå justeringar för ${newYear}.
+För varje hink som behöver justeras, ge ett konkret nytt månadsbudgetbelopp och en kort motivering (max 10 ord).
+Svara ENDAST med JSON-array: [{"name":"Hinknamn","newBudget":5500,"reason":"Överskred 8 av 12 månader"}]
+Föreslå bara justeringar för hinkar som verkligen behöver det.
+
+Budgetdata ${prevYear}:
+${bucketSummary}`
+      : `You are a budget advisor. Analyse the following budget data from ${prevYear} and suggest adjustments for ${newYear}.
+For each bucket that needs adjustment, give a concrete new monthly budget amount and a short reason (max 10 words).
+Reply ONLY with JSON array: [{"name":"BucketName","newBudget":5500,"reason":"Exceeded 8 of 12 months"}]
+Only suggest adjustments for buckets that genuinely need it.
+
+Budget data ${prevYear}:
+${bucketSummary}`;
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model:"claude-sonnet-4-6", max_tokens:1000,
+          messages:[{role:"user", content:prompt}]
+        })
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text || "[]";
+      const clean = text.replace(/```json|```/g,"").trim();
+      const sugg = JSON.parse(clean);
+      setSuggestions(sugg);
+      // Init budgets: suggested or copy from prev
+      const init = {};
+      prevBuckets.forEach(b => {
+        const s = sugg.find(x => x.name === b.name);
+        init[b.name] = s ? s.newBudget : b.avgBudget;
+      });
+      setBucketBudgets(init);
+    } catch(e) {
+      // Fallback: just copy budgets
+      const init = {};
+      prevBuckets.forEach(b => { init[b.name] = b.avgBudget; });
+      setBucketBudgets(init);
+      setSuggestions([]);
+    }
+    setStep("review");
+  }
+
+  function handleChoose(choice) {
+    setMode(choice);
+    if (choice === "empty") {
+      onCreate(emptyYear());
+      onClose();
+    } else {
+      analyzeWithAI();
+    }
+  }
+
+  function handleCreate() {
+    // Build new year: copy structure from prev, apply new budgets, reset spent
+    const newYearData = prevYearData.map(m => ({
+      ...m,
+      incomeSources: m.incomeSources.map(s => ({...s})), // keep income sources
+      buckets: m.buckets.map(b => ({
+        ...b,
+        budget: bucketBudgets[b.name] ?? b.budget,
+        spent: 0, // reset spending
+      }))
+    }));
+    onCreate(newYearData);
+    onClose();
+  }
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:400, display:"flex", alignItems:"flex-end", justifyContent:"center" }}
+      onClick={onClose}>
+      <div style={{
+        background:theme.card, borderRadius:"28px 28px 0 0",
+        padding:"20px 20px 40px", width:"100%", maxWidth:540,
+        maxHeight:"90vh", overflowY:"auto",
+      }} onClick={e=>e.stopPropagation()}>
+
+        {/* Handle */}
+        <div style={{ width:40, height:4, background:theme.cardBorder, borderRadius:2, margin:"0 auto 20px" }}/>
+
+        {/* Choose step */}
+        {step === "choose" && (
+          <>
+            <div style={{ fontWeight:800, fontSize:22, color:theme.accentDeep, marginBottom:6 }}>
+              🗓️ {t.newYearTitle(newYear)}
+            </div>
+            <div style={{ fontSize:13, color:theme.accentMuted, marginBottom:24, lineHeight:1.6 }}>
+              {lang==="sv"
+                ? `Vill du kopiera budgeten från ${prevYear} till ${newYear}? AI analyserar var du överskred budget och föreslår justeringar.`
+                : `Copy your ${prevYear} budget to ${newYear}? AI will analyse where you overspent and suggest adjustments.`}
+            </div>
+            <button onClick={() => handleChoose("copy")} style={{
+              width:"100%", padding:"16px", borderRadius:16, marginBottom:10,
+              background:`linear-gradient(135deg,${theme.accent},${theme.accentDeep})`,
+              color:"#fff", border:"none", cursor:"pointer", fontWeight:700, fontSize:15,
+              boxShadow:`0 4px 16px ${theme.accent}44`,
+              display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+            }}>
+              🤖 {t.newYearCopy}
+            </button>
+            <button onClick={() => handleChoose("empty")} style={{
+              width:"100%", padding:"14px", borderRadius:16,
+              background:"transparent", border:`1.5px solid ${theme.cardBorder}`,
+              color:theme.accentMuted, cursor:"pointer", fontWeight:600, fontSize:14,
+            }}>{t.newYearEmpty}</button>
+          </>
+        )}
+
+        {/* Analyzing step */}
+        {step === "analyzing" && (
+          <div style={{ textAlign:"center", padding:"40px 20px" }}>
+            <div style={{ fontSize:40, marginBottom:16 }}>🤖</div>
+            <div style={{ fontWeight:700, fontSize:16, color:theme.accentDeep, marginBottom:8 }}>{t.newYearAnalyzing}</div>
+            <div style={{ fontSize:13, color:theme.accentMuted }}>
+              {lang==="sv" ? `Jämför ${prevYear} budget mot faktiska utgifter…` : `Comparing ${prevYear} budget against actual spending…`}
+            </div>
+            <div style={{ width:40, height:4, background:theme.accent, borderRadius:2, margin:"20px auto 0", animation:"pulse 1s infinite" }}/>
+            <style>{`@keyframes pulse{0%,100%{opacity:0.3}50%{opacity:1}}`}</style>
+          </div>
+        )}
+
+        {/* Review step */}
+        {step === "review" && (
+          <>
+            <div style={{ fontWeight:800, fontSize:20, color:theme.accentDeep, marginBottom:4 }}>
+              {t.newYearAnalysis}
+            </div>
+            <div style={{ fontSize:12, color:theme.accentMuted, marginBottom:18 }}>
+              {lang==="sv"
+                ? `Justerade belopp för ${newYear}. Tryck på ett belopp för att ändra det.`
+                : `Adjusted amounts for ${newYear}. Tap an amount to edit it.`}
+            </div>
+
+            {prevBuckets.map(b => {
+              const sugg = suggestions.find(s => s.name === b.name);
+              const changed = sugg && sugg.newBudget !== b.avgBudget;
+              const avgSpent = b.totalSpent / 12;
+              const overBudget = avgSpent > b.avgBudget;
+
+              return (
+                <div key={b.name} style={{
+                  background: changed ? `${theme.accent}10` : theme.pill,
+                  borderRadius:14, padding:"12px 14px", marginBottom:10,
+                  border: `1px solid ${changed ? theme.accent+"40" : theme.cardBorder}`,
+                }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:changed?6:0 }}>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:14, color:theme.accentDeep }}>{b.name}</div>
+                      <div style={{ fontSize:11, color:theme.accentMuted, marginTop:2 }}>
+                        {lang==="sv"?"Föregående år:":"Previous:"} {fmt(b.avgBudget, currency)}/mån
+                        {" · "}
+                        <span style={{ color: overBudget ? "#C04040" : "#2A7A2A" }}>
+                          {lang==="sv"?"Snitt spenderat:":"Avg spent:"} {fmt(avgSpent, currency)}
+                        </span>
+                      </div>
+                    </div>
+                    <BudgetInput
+                      value={bucketBudgets[b.name] ?? b.avgBudget}
+                      onChange={v => setBucketBudgets(prev => ({...prev, [b.name]: v}))}
+                      currency={currency}
+                      theme={theme}
+                      changed={changed}
+                    />
+                  </div>
+                  {changed && sugg && (
+                    <div style={{ fontSize:11, color:theme.accent, fontWeight:600 }}>
+                      💡 {sugg.reason}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            <div style={{ display:"flex", gap:8, marginTop:16 }}>
+              <button onClick={handleCreate} style={{
+                flex:1, padding:14, borderRadius:16,
+                background:`linear-gradient(135deg,${theme.accent},${theme.accentDeep})`,
+                color:"#fff", border:"none", cursor:"pointer", fontWeight:700, fontSize:15,
+                boxShadow:`0 4px 16px ${theme.accent}44`,
+              }}>{t.newYearApply}</button>
+              <button onClick={onClose} style={{
+                padding:"14px 18px", borderRadius:16, background:theme.pill,
+                color:theme.pillText, border:"none", cursor:"pointer", fontSize:14,
+              }}>{t.cancel}</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Inline editable budget input for wizard
+function BudgetInput({ value, onChange, currency, theme, changed }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value);
+  useEffect(() => { setVal(value); }, [value]);
+  function commit() { const v = parseFloat(val); if (!isNaN(v) && v >= 0) onChange(v); setEditing(false); }
+  return editing ? (
+    <input type="number" value={val} autoFocus
+      onChange={e=>setVal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e=>e.key==="Enter"&&commit()}
+      style={{ width:100, padding:"5px 8px", borderRadius:8, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, fontWeight:700, textAlign:"right", color:theme.accentDeep }}
+    />
+  ) : (
+    <button onClick={()=>setEditing(true)} style={{
+      background: changed ? `${theme.accent}20` : "transparent",
+      border: changed ? `1px solid ${theme.accent}` : "none",
+      borderRadius:8, padding:"4px 8px", cursor:"pointer",
+      fontWeight:700, fontSize:14, color: changed ? theme.accentDeep : theme.accentMuted,
+    }}>{fmt(value, currency)}</button>
   );
 }
 
@@ -1946,6 +2308,8 @@ function LoginScreen({ onLogin }) {
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [name, setName]         = useState("");
+  const [consentTerms, setConsentTerms] = useState(false);
+  const [consentAge, setConsentAge]     = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
   const [info, setInfo]         = useState("");
@@ -1962,6 +2326,7 @@ function LoginScreen({ onLogin }) {
   async function handleSignup(e) {
     e?.preventDefault();
     if (!name.trim()) { setError(lang==="sv" ? "Ange ditt namn." : "Please enter your name."); return; }
+    if (!consentTerms || !consentAge) { setError(t.consentRequired); return; }
     setError(""); setLoading(true);
     const { data, error } = await supabase.auth.signUp({
       email, password,
@@ -2073,16 +2438,65 @@ function LoginScreen({ onLogin }) {
               </div>
             )}
 
+            {/* Consent checkboxes — signup only */}
+            {mode==="signup" && (
+              <div style={{ marginBottom:14 }}>
+                {/* Terms + Privacy */}
+                <label style={{ display:"flex", alignItems:"flex-start", gap:10, cursor:"pointer", marginBottom:10, padding:"10px 12px", borderRadius:12, background: consentTerms ? `${theme.accent}10` : theme.pill, border:`1.5px solid ${consentTerms ? theme.accent : theme.cardBorder}`, transition:"all 0.2s" }}>
+                  <div onClick={()=>setConsentTerms(v=>!v)} style={{
+                    width:20, height:20, borderRadius:5, flexShrink:0, marginTop:1,
+                    background: consentTerms ? theme.accent : "white",
+                    border:`2px solid ${consentTerms ? theme.accent : theme.inputBorder}`,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    cursor:"pointer", transition:"all 0.2s",
+                  }}>
+                    {consentTerms && <span style={{ color:"#fff", fontSize:13, fontWeight:800 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize:13, color:theme.accentDeep, lineHeight:1.5 }}>
+                    {t.consentTerms}{" "}
+                    <a href="https://sparybudget.com/terms" target="_blank" rel="noopener noreferrer"
+                      style={{ color:theme.accent, fontWeight:700, textDecoration:"underline" }}>
+                      {t.consentTermsLink}
+                    </a>{" "}
+                    {t.consentAnd}{" "}
+                    <a href="https://sparybudget.com/privacy" target="_blank" rel="noopener noreferrer"
+                      style={{ color:theme.accent, fontWeight:700, textDecoration:"underline" }}>
+                      {t.consentPrivacyLink}
+                    </a>
+                  </span>
+                </label>
+
+                {/* Age confirmation */}
+                <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer", padding:"10px 12px", borderRadius:12, background: consentAge ? `${theme.accent}10` : theme.pill, border:`1.5px solid ${consentAge ? theme.accent : theme.cardBorder}`, transition:"all 0.2s" }}>
+                  <div onClick={()=>setConsentAge(v=>!v)} style={{
+                    width:20, height:20, borderRadius:5, flexShrink:0,
+                    background: consentAge ? theme.accent : "white",
+                    border:`2px solid ${consentAge ? theme.accent : theme.inputBorder}`,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    cursor:"pointer", transition:"all 0.2s",
+                  }}>
+                    {consentAge && <span style={{ color:"#fff", fontSize:13, fontWeight:800 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize:13, color:theme.accentDeep }}>{t.consentAge}</span>
+                </label>
+              </div>
+            )}
+
             {/* Primary button */}
             <button
               onClick={mode==="login"?handleLogin:mode==="signup"?handleSignup:handleReset}
-              disabled={loading}
+              disabled={loading || (mode==="signup" && (!consentTerms || !consentAge))}
               style={{
                 width:"100%", padding:"14px", borderRadius:16, marginTop:4,
-                background: loading ? theme.pill : `linear-gradient(135deg,${theme.accent},${theme.accentDeep})`,
-                color: loading ? theme.pillText : "#fff",
-                border:"none", cursor:loading?"default":"pointer",
-                fontWeight:800, fontSize:16, boxShadow:`0 4px 16px ${theme.accent}44`,
+                background: (loading || (mode==="signup" && (!consentTerms || !consentAge)))
+                  ? theme.pill
+                  : `linear-gradient(135deg,${theme.accent},${theme.accentDeep})`,
+                color: (loading || (mode==="signup" && (!consentTerms || !consentAge)))
+                  ? theme.accentMuted : "#fff",
+                border:"none",
+                cursor:(loading || (mode==="signup" && (!consentTerms || !consentAge)))?"default":"pointer",
+                fontWeight:800, fontSize:16,
+                boxShadow:(mode==="signup" && (!consentTerms || !consentAge)) ? "none" : `0 4px 16px ${theme.accent}44`,
                 transition:"all 0.2s",
               }}>
               {loading ? (sv?"Laddar…":"Loading…") :
@@ -2097,7 +2511,7 @@ function LoginScreen({ onLogin }) {
             {mode==="login" ? (
               <>
                 {sv?"Inget konto? ":"No account? "}
-                <button onClick={()=>{setMode("signup");setError("");setInfo("");}} style={{
+                <button onClick={()=>{setMode("signup");setError("");setInfo("");setConsentTerms(false);setConsentAge(false);}} style={{
                   background:"none", border:"none", cursor:"pointer",
                   color:theme.accentDeep, fontWeight:700, fontSize:14,
                 }}>{sv?"Skapa ett":"Create one"}</button>
@@ -2173,7 +2587,7 @@ export default function App() {
       <div style={{ minHeight:"100vh", background:"#DDEAF8", display:"flex", alignItems:"center", justifyContent:"center" }}>
         <div style={{ textAlign:"center" }}>
           <div style={{ fontSize:40, marginBottom:12 }}>💰</div>
-          <div style={{ fontWeight:800, fontSize:24, color:"#1A2F52" }}>Spary</div>
+          <div style={{ fontWeight:800, fontSize:24, color:"#1A2F52" }}>Sparybudget</div>
           <div style={{ fontSize:13, color:"#8AAAD8", marginTop:8 }}>Laddar…</div>
         </div>
       </div>
@@ -2200,11 +2614,24 @@ function AppInner({ user, onLogout }) {
 
   // ── Supabase data ────────────────────────────────────────────────────────────
   const {
-    yearData, setYearData,
+    allYears, setAllYears,
     goals, setGoals,
     categories, setCategories,
     loading, saving, error: dataError,
   } = useSupabaseUserData(user.id, user.isDemo);
+
+  const [selectedYear, setSelectedYear]   = useState(CURRENT_YEAR);
+  const [showNewYear, setShowNewYear]     = useState(false);
+
+  // Derive current yearData from allYears
+  const yearData = allYears[selectedYear] || emptyYear();
+
+  function setYearData(fn) {
+    setAllYears(prev => ({
+      ...prev,
+      [selectedYear]: typeof fn === "function" ? fn(prev[selectedYear] || emptyYear()) : fn,
+    }));
+  }
 
   const [newCatName, setNewCatName] = useState("");
   const [showAddCat, setShowAddCat] = useState(false);
@@ -2220,6 +2647,14 @@ function AppInner({ user, onLogout }) {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [incomeCopied, setIncomeCopied] = useState(false);
 
+  function createYear(newYear, newYearData) {
+    setAllYears(prev => ({ ...prev, [newYear]: newYearData }));
+    setSelectedYear(newYear);
+    setShowNewYear(false);
+  }
+
+  const availableYears = Object.keys(allYears).map(Number).sort();
+
   // Sync default category names when language changes
   useEffect(() => {
     setCategories(prev => prev.map((c,i) => i < 3 ? {...c, name: t.defaultCategories[i]} : c));
@@ -2231,7 +2666,7 @@ function AppInner({ user, onLogout }) {
       <div style={{ minHeight:"100vh", background:theme.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
         <div style={{ textAlign:"center", maxWidth:320 }}>
           <div style={{ fontSize:40, marginBottom:12 }}>💰</div>
-          <div style={{ fontWeight:800, fontSize:24, color:theme.accentDeep }}>Spary</div>
+          <div style={{ fontWeight:800, fontSize:24, color:theme.accentDeep }}>Sparybudget</div>
           {dataError ? (
             <>
               <div style={{ fontSize:13, color:"#C03030", marginTop:12, padding:"12px 16px", background:"#FFE8E8", borderRadius:12, border:"1px solid #F0A0A0" }}>
@@ -2535,6 +2970,26 @@ function AppInner({ user, onLogout }) {
               </button>
             ))}
           </div>
+
+          {/* Year switcher */}
+          <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:12 }}>
+            <div style={{ fontSize:11, color:theme.accentMuted, letterSpacing:0.5 }}>{t.switchYear}:</div>
+            <div style={{ display:"flex", gap:4, flex:1 }}>
+              {availableYears.map(y => (
+                <button key={y} onClick={()=>setSelectedYear(y)} style={{
+                  padding:"5px 12px", borderRadius:12,
+                  background: selectedYear===y ? "#fff" : "rgba(255,255,255,0.12)",
+                  color: selectedYear===y ? theme.accentDeep : theme.accentText,
+                  border:"none", cursor:"pointer", fontWeight:selectedYear===y?700:500, fontSize:12,
+                }}>{y}</button>
+              ))}
+            </div>
+            <button onClick={()=>setShowNewYear(true)} style={{
+              padding:"5px 12px", borderRadius:12,
+              background:"rgba(255,255,255,0.12)", border:"none",
+              color:theme.accentText, cursor:"pointer", fontSize:12, fontWeight:600,
+            }}>+ {t.newYear}</button>
+          </div>
         </div>
 
         <div style={{ padding:"0 16px" }}>
@@ -2556,7 +3011,7 @@ function AppInner({ user, onLogout }) {
             ) : activeTab==="savings" ? (
               <SavingsTab goals={goals} setGoals={setGoals} lang={lang} currency={currency} theme={theme} yearData={yearData}/>
             ) : activeTab==="import" ? (
-              <ImportTab lang={lang} currency={currency} theme={theme} yearData={yearData} setYearData={setYearData} categories={categories}/>
+              <ImportTab lang={lang} currency={currency} theme={theme} yearData={yearData} setYearData={setYearData} categories={categories} allYears={allYears} setAllYears={setAllYears} selectedYear={selectedYear}/>
             ) : (
               <>
                 <div style={{ fontStyle:"italic", fontSize:22, color:theme.accentDeep, marginBottom:14, fontWeight:300 }}>
@@ -2806,6 +3261,18 @@ function AppInner({ user, onLogout }) {
         </div>
         </div> {/* .tryvi-inner */}
       </div>
+
+      {/* New Year Wizard */}
+      {showNewYear && (
+        <NewYearWizard
+          newYear={Math.max(...availableYears) + 1}
+          prevYear={Math.max(...availableYears)}
+          prevYearData={allYears[Math.max(...availableYears)] || emptyYear()}
+          lang={lang} currency={currency} theme={theme}
+          onClose={()=>setShowNewYear(false)}
+          onCreate={(newYearData) => createYear(Math.max(...availableYears)+1, newYearData)}
+        />
+      )}
 
       {/* Profile modal */}
       {showProfile && (
