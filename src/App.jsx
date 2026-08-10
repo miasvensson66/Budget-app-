@@ -2920,6 +2920,7 @@ function AppInner({ user, onLogout }) {
         body{background:${theme.bodyBg};font-family:'Plus Jakarta Sans',system-ui,sans-serif;min-height:100vh;min-height:-webkit-fill-available;}
         input:focus,select:focus{outline:none;}
         input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
+        input, select, textarea, button { max-width:100%; box-sizing:border-box; }
         ::-webkit-scrollbar{width:4px;}
         ::-webkit-scrollbar-thumb{background:${theme.scrollThumb};border-radius:2px;}
         @media(min-width:600px){.tryvi-inner{max-width:540px;margin:0 auto;}}
@@ -3106,25 +3107,25 @@ function AppInner({ user, onLogout }) {
 
                   {/* Add source form */}
                   {showAddSource ? (
-                    <div style={{ marginTop:10 }}>
-                      <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                    <div style={{ marginTop:10, width:"100%", boxSizing:"border-box" }}>
+                      <div style={{ display:"flex", gap:8, marginBottom:8, width:"100%" }}>
                         <input type="text" value={newSourceName} onChange={e=>setNewSourceName(e.target.value)}
                           placeholder={t.incomeSourceName}
-                          style={{ flex:2, padding:"10px 12px", borderRadius:12, border:"1.5px solid #6A5A4A", background:"rgba(255,255,255,0.1)", color:"#F5F0EA", fontSize:14 }}
+                          style={{ flex:"1 1 0%", minWidth:0, width:"100%", boxSizing:"border-box", padding:"10px 12px", borderRadius:12, border:"1.5px solid #6A5A4A", background:"rgba(255,255,255,0.1)", color:"#F5F0EA", fontSize:14 }}
                         />
-                        <input type="number" value={newSourceAmount} onChange={e=>setNewSourceAmount(e.target.value)}
+                        <input type="number" inputMode="decimal" value={newSourceAmount} onChange={e=>setNewSourceAmount(e.target.value)}
                           placeholder={t.incomeSourceAmount}
                           onKeyDown={e=>e.key==="Enter"&&addIncomeSource()}
-                          style={{ flex:1, padding:"10px 12px", borderRadius:12, border:"1.5px solid #6A5A4A", background:"rgba(255,255,255,0.1)", color:"#F5F0EA", fontSize:14 }}
+                          style={{ flex:"0 1 110px", minWidth:0, width:"110px", boxSizing:"border-box", padding:"10px 10px", borderRadius:12, border:"1.5px solid #6A5A4A", background:"rgba(255,255,255,0.1)", color:"#F5F0EA", fontSize:14 }}
                         />
                       </div>
-                      <div style={{ display:"flex", gap:8 }}>
+                      <div style={{ display:"flex", gap:8, width:"100%" }}>
                         <button onClick={addIncomeSource} style={{
-                          flex:1, padding:"10px", borderRadius:12, background:"#C4A882",
+                          flex:1, minWidth:0, padding:"10px", borderRadius:12, background:"#C4A882",
                           color:"#3A2E22", border:"none", cursor:"pointer", fontWeight:700, fontSize:14,
                         }}>{t.add}</button>
                         <button onClick={()=>{setShowAddSource(false);setNewSourceName("");setNewSourceAmount("");}} style={{
-                          padding:"10px 14px", borderRadius:12, background:"rgba(255,255,255,0.1)",
+                          flexShrink:0, padding:"10px 14px", borderRadius:12, background:"rgba(255,255,255,0.1)",
                           color:"#C4A882", border:"none", cursor:"pointer", fontSize:14,
                         }}>✕</button>
                       </div>
@@ -3225,15 +3226,15 @@ function AppInner({ user, onLogout }) {
                 {/* Add Bucket form */}
                 {showAddBucket ? (
                   <div style={{ background:theme.card, borderRadius:20, padding:18, border:`1.5px dashed ${theme.inputBorder}`, marginBottom:12 }}>
-                    <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+                    <div style={{ display:"flex", gap:8, marginBottom:10, width:"100%" }}>
                       <input type="text" value={newName} onChange={e=>setNewName(e.target.value)}
                         placeholder={t.bucketName}
-                        style={{ flex:2, padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}
+                        style={{ flex:"1 1 0%", minWidth:0, width:"100%", boxSizing:"border-box", padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}
                       />
-                      <input type="number" value={newBudget} onChange={e=>setNewBudget(e.target.value)}
+                      <input type="number" inputMode="decimal" value={newBudget} onChange={e=>setNewBudget(e.target.value)}
                         placeholder={t.budgetAmount}
                         onKeyDown={e=>e.key==="Enter"&&addBucket()}
-                        style={{ flex:1, padding:"10px 14px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}
+                        style={{ flex:"0 1 110px", minWidth:0, width:"110px", boxSizing:"border-box", padding:"10px 10px", borderRadius:12, border:`1.5px solid ${theme.inputBorder}`, background:"white", fontSize:14, color:theme.accentDeep }}
                       />
                     </div>
 
