@@ -2349,7 +2349,7 @@ function ProfileScreen({ user, lang, theme, onClose, onLogout }) {
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
   const { maxW } = useViewport();
-  const [lang, setLang] = useLS("saldo_ui_lang", "sv");
+  const [lang, setLang] = useLS("sparybudget_ui_lang", "sv");
   const t = T[lang];
   const theme = THEMES[0];
 
@@ -2422,7 +2422,7 @@ function LoginScreen({ onLogin }) {
         {/* Header */}
         <div style={{ padding:"64px 24px 36px", background:theme.header, borderRadius:"0 0 36px 36px", textAlign:"center", boxShadow:`0 8px 40px ${theme.accentDeep}60` }}>
           <div style={{ fontSize:48, marginBottom:10 }}>💰</div>
-          <div style={{ fontWeight:800, fontSize:36, color:"#fff", letterSpacing:"-1px" }}>Saldo</div>
+          <div style={{ fontWeight:800, fontSize:36, color:"#fff", letterSpacing:"-1px" }}>{t.appTitle}</div>
           <div style={{ fontSize:14, color:theme.accentMuted, marginTop:4 }}>{t.appSubtitle}</div>
           <button onClick={()=>setLang(l=>l==="en"?"sv":"en")} style={{
             marginTop:16, padding:"6px 16px", borderRadius:20,
@@ -2649,9 +2649,9 @@ export default function App() {
 
 function AppInner({ user, onLogout }) {
   const { maxW, isTablet }              = useViewport();
-  const [lang, setLang]                 = useLS("saldo_lang", "sv");
-  const [currency, setCurrency]         = useLS("saldo_currency", "SEK");
-  const [themeId, setThemeId]           = useLS("saldo_theme", "blue");
+  const [lang, setLang]                 = useLS("sparybudget_lang", "sv");
+  const [currency, setCurrency]         = useLS("sparybudget_currency", "SEK");
+  const [themeId, setThemeId]           = useLS("sparybudget_theme", "blue");
   const theme = THEMES.find(th => th.id === themeId) || THEMES[0];
 
   const [activeTab, setActiveTab]         = useState("monthly");
